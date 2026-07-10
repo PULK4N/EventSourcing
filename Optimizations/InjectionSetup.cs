@@ -1,6 +1,8 @@
 using EventSourcing.Core.Interfaces;
+using EventSourcing.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace EventSourcing.Optimizations;
 
@@ -11,6 +13,8 @@ public static class InjectionSetup
         IConfiguration configuration
     )
     {
+        service.AddMemoryCache();
+        service.TryAddScoped<BaseSqlEventStore>();
         service.AddScoped<IEventStore, EventStoreWithCache>();
 
         return service;

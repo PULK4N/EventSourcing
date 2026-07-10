@@ -1,14 +1,13 @@
+using System.Linq.Expressions;
 using EventSourcing.Persistence.Models;
 using EventSourcing.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace EventSourcing.Persistence;
 
-public abstract class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
+public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
 {
-    public virtual async Task<Dictionary<Guid, EventPayload[]>> GetEvents(
-        params Guid[] AggregateIds
-    )
+    public async Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateIds)
     {
         var serializedPayloads = await applicationDbContext
             .SerializedEventPayload
@@ -29,6 +28,19 @@ public abstract class BaseSqlEventStore(EventSourcingDbContext applicationDbCont
         }
 
         return eventsDictionary;
+    }
+
+    public async Task<List<EventPayload>> GetEvents(
+        Expression<Func<SerializedEventPayload, bool>> predicate
+    )
+    {
+        var serializedPayloads = await applicationDbContext
+            .SerializedEventPayload
+            .Where(predicate)
+            .AsNoTracking()
+            .ToListAsync();
+
+        return serializedPayloads.Select(x => x.Deserialize()).ToList();
     }
 
     public async Task Write(bool commit, params EventPayload[] payloads)

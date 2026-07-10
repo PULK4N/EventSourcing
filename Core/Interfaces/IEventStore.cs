@@ -6,6 +6,5 @@ namespace EventSourcing.Core.Interfaces
     {
         Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateId);
         Task Write(params EventPayload[] payloads);
-        Task<MessagePayload> GetLatestMessage();
     }
 }

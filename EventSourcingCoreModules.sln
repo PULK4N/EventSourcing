@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core.Tests", "Core.Tests\Co
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Optimizations", "Optimizations\Optimizations.csproj", "{404B82A2-2B8E-40E9-93E2-25BE9F03BCC7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Optimizations.Tests", "Optimizations.Tests\Optimizations.Tests.csproj", "{B9C9DC83-138A-41A8-88F5-947592E958F6}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Persistence", "Persistence\Persistence.csproj", "{4E50FF43-629F-484B-B20A-4560044D6FCA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared", "Shared\Shared.csproj", "{C54E964C-E83F-4C44-AA96-054137380215}"
@@ -34,6 +36,10 @@ Global
 		{404B82A2-2B8E-40E9-93E2-25BE9F03BCC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{404B82A2-2B8E-40E9-93E2-25BE9F03BCC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{404B82A2-2B8E-40E9-93E2-25BE9F03BCC7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9C9DC83-138A-41A8-88F5-947592E958F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9C9DC83-138A-41A8-88F5-947592E958F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9C9DC83-138A-41A8-88F5-947592E958F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9C9DC83-138A-41A8-88F5-947592E958F6}.Release|Any CPU.Build.0 = Release|Any CPU
 		{4E50FF43-629F-484B-B20A-4560044D6FCA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4E50FF43-629F-484B-B20A-4560044D6FCA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E50FF43-629F-484B-B20A-4560044D6FCA}.Release|Any CPU.ActiveCfg = Release|Any CPU
