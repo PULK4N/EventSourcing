@@ -1,3 +1,4 @@
+using EventSourcing.Core.Interfaces;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Models;
 using EventSourcing.Shared.Models;
@@ -10,7 +11,7 @@ using StackExchange.Redis;
 
 namespace EventSourcing.Optimizations
 {
-    public class EventStoreWithCache : EventStoreWithOutbox
+    public class EventStoreWithCache : IEventStore
     {
         protected readonly IDatabase _database;
 
@@ -27,9 +28,7 @@ namespace EventSourcing.Optimizations
             _database = redis.GetDatabase();
         }
 
-        public override async Task<Dictionary<Guid, EventPayload[]>> GetEventsByAggregate(
-            params Guid[] AggregateIds
-        )
+        public async Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateIds)
         {
             var payloadsFromCache = await GetPayloadsFromCache(AggregateIds);
 
@@ -93,7 +92,7 @@ namespace EventSourcing.Optimizations
                 );
             }
 
-            var serializedPayloads = await _applicationDbContext
+            var serializedPayloads = await applicationDbContext
                 .SerializedEventPayload
                 .Where(predicate)
                 .AsNoTracking()

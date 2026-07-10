@@ -11,7 +11,7 @@ public static class InjectionSetup
         IConfiguration configuration
     )
     {
-        service.AddScoped<IEventStoreWithOutbox, EventStoreWithCache>();
+        service.AddScoped<IEventStore, EventStoreWithCache>();
 
         return service;
     }

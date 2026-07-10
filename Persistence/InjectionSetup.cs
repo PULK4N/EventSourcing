@@ -12,7 +12,7 @@ public static class InjectionSetup
         IConfiguration configuration
     )
     {
-        service.AddScoped<IEventStoreWithOutbox, EventStoreWithOutbox>();
+        service.AddScoped<IEventStore, EventStoreWithOutbox>();
 
         var connectionString = configuration.GetConnectionString("ApplicationDatabase");
         var contextOptions = new DbContextOptionsBuilder<EventSourcingDbContext>();

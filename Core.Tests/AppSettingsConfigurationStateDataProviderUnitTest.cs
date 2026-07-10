@@ -1,4 +1,3 @@
-using EventSourcing.Core;
 using EventSourcing.Core.Providers;
 using EventSourcing.Core.Tests.TestModels;
 using EventSourcing.Shared.Models;

@@ -6,12 +6,12 @@ namespace EventSourcing.Core
 {
     public class StateMachineHandler
     {
-        private readonly IEventStoreWithOutbox _eventStore;
+        private readonly IEventStore _eventStore;
         private readonly IStateDataProvider _stateDataProvider;
         private readonly OrderNumberHelper _orderNumberHelper;
 
         public StateMachineHandler(
-            IEventStoreWithOutbox eventStore,
+            IEventStore eventStore,
             IStateDataProvider stateDataProvider,
             OrderNumberHelper orderNumberHelper
         )
@@ -29,7 +29,7 @@ namespace EventSourcing.Core
                 .Select(x => x.EventExecutionInfo.AggregateId)
                 .Distinct()
                 .ToArray();
-            var existingEvents = await _eventStore.GetEventsByAggregate(aggregateIds);
+            var existingEvents = await _eventStore.GetEvents(aggregateIds);
 
             var stateInfoDictionary = new Dictionary<Guid, StateInfo>();
 
@@ -51,7 +51,7 @@ namespace EventSourcing.Core
                 stateInfoDictionary.Add(aggregateId, stateInfo);
             }
 
-            await _eventStore.WriteEventsWithOutbox(eventsToExecute.ToArray());
+            await _eventStore.Write(eventsToExecute.ToArray());
 
             return stateInfoDictionary;
         }
