@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Core.Tests\Core.Tests.csproj" />
+  <Project Path="Core\Core.csproj" />
+  <Project Path="Optimizations\Optimizations.csproj" />
+  <Project Path="Persistence\Persistence.csproj" />
+  <Project Path="Shared\Shared.csproj" />
+</Solution>
