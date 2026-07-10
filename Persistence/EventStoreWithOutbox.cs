@@ -1,9 +1,7 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Persistence.Models;
-using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 
 namespace EventSourcing.Persistence;
 
@@ -39,32 +37,6 @@ public class EventStoreWithOutbox(
         applicationDbContext.Update(serializedMessage);
         await applicationDbContext.SaveChangesAsync();
 
-        return Deserialize(serializedMessage);
-    }
-
-    private MessagePayload Deserialize(SerializedPayloadMessage serializedPayload)
-    {
-        var eventExecutionInfo = JsonConvert.DeserializeObject<EventExecutionInfo>(
-            serializedPayload.SerializedEventExecutionInfo
-        );
-
-        var eventType = AppDomain
-            .CurrentDomain
-            .GetAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .FirstOrDefault(
-                x => x.AssemblyQualifiedName == eventExecutionInfo.AssemblyQualifiedEventName
-            );
-
-        var eventData = (IEvent)
-            JsonConvert.DeserializeObject(serializedPayload.SerializedEventData, eventType);
-
-        var payload = new EventPayload()
-        {
-            EventData = eventData,
-            EventExecutionInfo = eventExecutionInfo
-        };
-
-        return new MessagePayload() { Payload = payload, Id = serializedPayload.Id };
+        return serializedMessage.Deserialize();
     }
 }

@@ -1,8 +1,6 @@
 using EventSourcing.Persistence.Models;
-using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 
 namespace EventSourcing.Persistence;
 
@@ -18,7 +16,7 @@ public abstract class BaseSqlEventStore(EventSourcingDbContext applicationDbCont
             .AsNoTracking()
             .ToListAsync();
 
-        var payloads = serializedPayloads.Select(Deserialize);
+        var payloads = serializedPayloads.Select(x => x.Deserialize());
 
         var eventsDictionary = new Dictionary<Guid, EventPayload[]>();
 
@@ -31,39 +29,6 @@ public abstract class BaseSqlEventStore(EventSourcingDbContext applicationDbCont
         }
 
         return eventsDictionary;
-    }
-
-    protected EventPayload Deserialize(SerializedEventPayload serializedPayload)
-    {
-        var payload = new EventPayload()
-        {
-            EventExecutionInfo = new EventExecutionInfo()
-            {
-                AggregateId = serializedPayload.AggregateId,
-                EventExecutor = serializedPayload.EventExecutor,
-                EventName = serializedPayload.EventName,
-                AssemblyQualifiedEventName = serializedPayload.AssemblyQualifiedEventName,
-                Id = serializedPayload.Id,
-                OrderNumber = serializedPayload.OrderNumber,
-                StateMachineId = serializedPayload.StateMachineId,
-                Timestamp = serializedPayload.Timestamp
-            }
-        };
-
-        var eventType = AppDomain
-            .CurrentDomain
-            .GetAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .FirstOrDefault(
-                x => x.AssemblyQualifiedName == serializedPayload.AssemblyQualifiedEventName
-            );
-
-        var eventData = (IEvent)
-            JsonConvert.DeserializeObject(serializedPayload.SerializedJsonData, eventType);
-
-        payload.EventData = eventData;
-
-        return payload;
     }
 
     public async Task Write(bool commit, params EventPayload[] payloads)

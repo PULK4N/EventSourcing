@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Newtonsoft.Json;
 
@@ -35,6 +36,32 @@ namespace EventSourcing.Persistence.Models
             serilalizedPayload.AggregateId = payload.EventExecutionInfo.AggregateId;
 
             return serilalizedPayload;
+        }
+
+        public MessagePayload Deserialize()
+        {
+            var eventExecutionInfo = JsonConvert.DeserializeObject<EventExecutionInfo>(
+                this.SerializedEventExecutionInfo
+            );
+
+            var eventType = AppDomain
+                .CurrentDomain
+                .GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .FirstOrDefault(
+                    x => x.AssemblyQualifiedName == eventExecutionInfo.AssemblyQualifiedEventName
+                );
+
+            var eventData = (IEvent)
+                JsonConvert.DeserializeObject(this.SerializedEventData, eventType);
+
+            var payload = new EventPayload()
+            {
+                EventData = eventData,
+                EventExecutionInfo = eventExecutionInfo
+            };
+
+            return new MessagePayload() { Payload = payload, Id = this.Id };
         }
     }
 }
