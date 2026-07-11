@@ -1,5 +1,6 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
+using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Models;
 using Shared.Interfaces;
 
@@ -105,6 +106,13 @@ public class StateMachineHandler(
     private async Task Validate(object stateData, IEnumerable<IEventValidator> validators)
     {
         var tasks = validators.Select(v => v.Validate(stateData)).ToArray();
-        var validationErrors = await Task.WhenAll(tasks);
+        var validationResults = await Task.WhenAll(tasks);
+
+        var failedValidations = validationResults.Where(x => x.Succeded == false).ToList();
+
+        if (!failedValidations.Any())
+            return;
+
+        throw new EventValidationException(failedValidations);
     }
 }

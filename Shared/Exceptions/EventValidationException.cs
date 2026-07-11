@@ -2,7 +2,7 @@ using EventSourcing.Shared.Models;
 
 namespace EventSourcing.Shared.Exceptions;
 
-public class EventValidationException(EventValidationResult[] validationResults)
+public class EventValidationException(List<EventValidationResult> validationResults)
     : Exception(CreateMessage(validationResults.AsReadOnly()))
 {
     public IReadOnlyCollection<EventValidationResult> ValidationResults =>
