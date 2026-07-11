@@ -1,6 +1,7 @@
 using EventSourcing.Optimizations;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Models;
+using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,14 @@ public class EventStoreWithCacheTests : IDisposable
     private readonly EventSourcingDbContext _dbContext;
     private readonly MemoryCache _cache = new(new MemoryCacheOptions());
     private readonly EventStoreWithCache _eventStore;
+
+    static EventStoreWithCacheTests()
+    {
+        EventTypeContainer.AddEventType(
+            typeof(TestEvent).AssemblyQualifiedName!,
+            typeof(TestEvent)
+        );
+    }
 
     public EventStoreWithCacheTests()
     {
