@@ -1,6 +1,6 @@
 using System.Linq;
 using System.Linq.Expressions;
-using EventSourcing.Core.Interfaces;
+using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Models;
 using EventSourcing.Shared.Models;

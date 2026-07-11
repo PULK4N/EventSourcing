@@ -1,4 +1,4 @@
-using EventSourcing.Core.Interfaces;
+using EventSourcing.Persistence.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

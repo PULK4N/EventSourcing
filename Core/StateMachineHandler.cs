@@ -1,5 +1,6 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
+using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Models;
 using Shared.Interfaces;
