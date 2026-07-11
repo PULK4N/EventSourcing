@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Linq.Expressions;
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Models;
@@ -91,7 +92,7 @@ namespace EventSourcing.Optimizations
                         && x.OrderNumber > aggregateWithOrderNumber.OrderNumber
                 );
             }
-            System.Linq.Expressions.Expression<Func<SerializedEventPayload, bool>> test = predicate;
+            Expression<Func<SerializedEventPayload, bool>> test = predicate;
 
             return await _sqlEventStore.GetEvents(predicate);
         }
