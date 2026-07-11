@@ -1,4 +1,4 @@
-namespace EventSourcing.Core
+namespace EventSourcing.Shared.Exceptions
 {
     public class EventNotFoundException : Exception
     {

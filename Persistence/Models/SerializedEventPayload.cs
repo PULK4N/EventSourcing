@@ -1,3 +1,4 @@
+using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Newtonsoft.Json;
@@ -52,10 +53,7 @@ namespace EventSourcing.Persistence.Models
                 }
             };
 
-            var eventType = Type.GetType(
-                payload.EventExecutionInfo.AssemblyQualifiedEventName,
-                throwOnError: true
-            );
+            var eventType = EventTypeContainer.GetEventType(AssemblyQualifiedEventName);
 
             var eventData = (IEvent)
                 JsonConvert.DeserializeObject(this.SerializedJsonData, eventType);

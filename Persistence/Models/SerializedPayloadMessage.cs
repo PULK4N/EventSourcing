@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Newtonsoft.Json;
@@ -45,9 +46,8 @@ namespace EventSourcing.Persistence.Models
                 this.SerializedEventExecutionInfo
             );
 
-            var eventType = Type.GetType(
-                eventExecutionInfo.AssemblyQualifiedEventName,
-                throwOnError: true
+            var eventType = EventTypeContainer.GetEventType(
+                eventExecutionInfo.AssemblyQualifiedEventName
             );
 
             var eventData = (IEvent)

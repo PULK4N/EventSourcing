@@ -1,6 +1,7 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
 using EventSourcing.Shared.Containers;
+using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -65,7 +66,7 @@ namespace EventSourcing.Core
 
         public static IServiceCollection RegisterEventTypes(this IServiceCollection services)
         {
-            var interfaceType = typeof(ISharedStateData);
+            var interfaceType = typeof(IEvent);
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
             var allImplementations = assemblies
@@ -77,7 +78,7 @@ namespace EventSourcing.Core
             foreach (var implementation in allImplementations)
             {
                 if (implementation is Type type)
-                    EventTypeContainer.AddEventType(implementation.ToString(), type);
+                    EventTypeContainer.AddEventType(implementation.AssemblyQualifiedName, type);
             }
 
             return services;
