@@ -18,6 +18,7 @@ namespace EventSourcing.Core
             services.AddScoped<OrderNumberHelper>();
             services.AddScoped<StateMachineHandler>();
             services.RegisterStateDataTypes();
+            services.RegisterEventTypes();
             // services.RegisterHookTypes();
             services.AddScoped<IEventValidatorProvider, DefaultEventValidatorProvider>();
 

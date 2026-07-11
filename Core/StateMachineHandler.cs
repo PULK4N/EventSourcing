@@ -1,6 +1,7 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
 using EventSourcing.Shared.Models;
+using Shared.Interfaces;
 
 namespace EventSourcing.Core;
 
@@ -84,14 +85,26 @@ public class StateMachineHandler(
 
         foreach (var payload in eventPayloads)
         {
-            var prerequisiteValidators = _validatorProvider.GetPreEventStateValidators(payload);
+            var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(
+                payload
+            );
+            await Validate(stateData, prerequisiteValidators.Select(x => x as IEventValidator));
             stateData = payload.EventData.Apply(stateData, payload.EventExecutionInfo);
             stateInfo.StateData = stateData;
             stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
             stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
-            var postrequisiteValidators = _validatorProvider.GetPostEventStateValidators(payload);
+            var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(
+                payload
+            );
+            await Validate(stateData, postrequisiteValidators.Select(x => x as IEventValidator));
         }
 
         return stateInfo;
+    }
+
+    private async Task Validate(object stateData, IEnumerable<IEventValidator> validators)
+    {
+        var tasks = validators.Select(v => v.Validate(stateData)).ToArray();
+        var validationErrors = await Task.WhenAll(tasks);
     }
 }

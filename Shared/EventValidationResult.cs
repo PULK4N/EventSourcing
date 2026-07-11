@@ -1,15 +1,36 @@
-namespace EventSourcing.Shared.Models
+#nullable enable
+
+namespace EventSourcing.Shared.Models;
+
+public class EventValidationResult
 {
-    /*
-     * State info for a given aggregate
-     * Make sure to instantiate only in State Handlers
-     */
-    public class EventValidationResult
+    public required string ValidatorName { get; set; }
+    public required string EventName { get; set; }
+    public required string State { get; set; }
+    public required string StateMachineId { get; set; }
+    public required uint OrderNumber { get; set; }
+    public required Guid AggregateId { get; set; }
+
+    public required bool Succeded { get; set; }
+    public string? FailureReason { get; set; }
+
+    public static EventValidationResult FromPayload(
+        EventPayload payload,
+        string validatorName,
+        bool succeded = true,
+        string? failureReason = null
+    )
     {
-        public string Id { get; set; }
-        public string EventName { get; set; }
-        public string State { get; set; }
-        public string StateMachineId { get; set; }
-        public Guid AggregateId { get; set; }
+        return new EventValidationResult()
+        {
+            ValidatorName = validatorName,
+            EventName = payload.EventExecutionInfo.EventName,
+            AggregateId = payload.EventExecutionInfo.AggregateId,
+            OrderNumber = payload.EventExecutionInfo.OrderNumber,
+            StateMachineId = payload.EventExecutionInfo.StateMachineId,
+            State = payload.EventExecutionInfo.NewState,
+            Succeded = succeded,
+            FailureReason = failureReason
+        };
     }
 }

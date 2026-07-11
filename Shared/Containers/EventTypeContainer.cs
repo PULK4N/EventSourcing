@@ -6,10 +6,9 @@ public static class EventTypeContainer
 {
     private static readonly Dictionary<string, Type> eventTypes = new Dictionary<string, Type>();
 
-    public static void AddEventType(string fullName, Type localEvent)
+    public static void AddEventType(string fullName, Type @Event)
     {
-        var name = fullName.Split('.').Last();
-        eventTypes.Add(name, localEvent);
+        eventTypes.Add(fullName, @Event);
     }
 
     public static Type GetEventType(string name)

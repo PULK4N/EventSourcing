@@ -35,8 +35,10 @@ public class EventStoreWithCacheTests : IDisposable
 
         var result = await _eventStore.GetEvents(aggregateId);
 
-        Assert.Equal([firstEvent.EventExecutionInfo.Id, secondEvent.EventExecutionInfo.Id],
-            result[aggregateId].Select(payload => payload.EventExecutionInfo.Id));
+        Assert.Equal(
+            [ firstEvent.EventExecutionInfo.Id, secondEvent.EventExecutionInfo.Id ],
+            result[aggregateId].Select(payload => payload.EventExecutionInfo.Id)
+        );
         Assert.True(
             _cache.TryGetValue<EventPayload[]>(GetCacheKey(aggregateId), out var cachedEvents)
         );
@@ -56,8 +58,10 @@ public class EventStoreWithCacheTests : IDisposable
 
         var result = await _eventStore.GetEvents(aggregateId);
 
-        Assert.Equal([1u, 2u],
-            result[aggregateId].Select(payload => payload.EventExecutionInfo.OrderNumber));
+        Assert.Equal(
+            [ 1u, 2u ],
+            result[aggregateId].Select(payload => payload.EventExecutionInfo.OrderNumber)
+        );
         Assert.True(
             _cache.TryGetValue<EventPayload[]>(GetCacheKey(aggregateId), out var cachedEvents)
         );
@@ -81,7 +85,10 @@ public class EventStoreWithCacheTests : IDisposable
         Assert.Single(result[firstAggregateId]);
         Assert.Single(result[secondAggregateId]);
         Assert.Equal(firstAggregateId, result[firstAggregateId][0].EventExecutionInfo.AggregateId);
-        Assert.Equal(secondAggregateId, result[secondAggregateId][0].EventExecutionInfo.AggregateId);
+        Assert.Equal(
+            secondAggregateId,
+            result[secondAggregateId][0].EventExecutionInfo.AggregateId
+        );
     }
 
     [Fact]
@@ -121,9 +128,9 @@ public class EventStoreWithCacheTests : IDisposable
 
     private async Task Seed(params EventPayload[] payloads)
     {
-        await _dbContext.SerializedEventPayload.AddRangeAsync(
-            payloads.Select(SerializedEventPayload.FromPayload)
-        );
+        await _dbContext
+            .SerializedEventPayload
+            .AddRangeAsync(payloads.Select(SerializedEventPayload.FromPayload));
         await _dbContext.SaveChangesAsync();
         _dbContext.ChangeTracker.Clear();
     }
