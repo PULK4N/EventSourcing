@@ -19,20 +19,18 @@ namespace EventSourcing.Persistence.Models
 
         public static SerializedEventPayload FromPayload(EventPayload payload)
         {
-            var serilalizedPayload = new SerializedEventPayload();
-
-            serilalizedPayload.Id = payload.EventExecutionInfo.Id;
-            serilalizedPayload.Timestamp = payload.EventExecutionInfo.Timestamp;
-            serilalizedPayload.AggregateId = payload.EventExecutionInfo.AggregateId;
-            serilalizedPayload.OrderNumber = payload.EventExecutionInfo.OrderNumber;
-            serilalizedPayload.EventExecutor = payload.EventExecutionInfo.EventExecutor;
-            serilalizedPayload.EventName = payload.EventExecutionInfo.EventName;
-            serilalizedPayload.AssemblyQualifiedEventName = payload
-                .EventExecutionInfo
-                .AssemblyQualifiedEventName;
-            serilalizedPayload.StateMachineId = payload.EventExecutionInfo.StateMachineId;
-
-            serilalizedPayload.SerializedJsonData = JsonConvert.SerializeObject(payload.EventData);
+            var serilalizedPayload = new SerializedEventPayload
+            {
+                Id = payload.EventExecutionInfo.Id,
+                Timestamp = payload.EventExecutionInfo.Timestamp,
+                AggregateId = payload.EventExecutionInfo.AggregateId,
+                OrderNumber = payload.EventExecutionInfo.OrderNumber,
+                EventExecutor = payload.EventExecutionInfo.EventExecutor,
+                EventName = payload.EventExecutionInfo.EventName,
+                AssemblyQualifiedEventName = payload.EventExecutionInfo.AssemblyQualifiedEventName,
+                StateMachineId = payload.EventExecutionInfo.StateMachineId,
+                SerializedJsonData = JsonConvert.SerializeObject(payload.EventData)
+            };
 
             return serilalizedPayload;
         }
@@ -54,11 +52,10 @@ namespace EventSourcing.Persistence.Models
                 }
             };
 
-            var eventType = AppDomain
-                .CurrentDomain
-                .GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .FirstOrDefault(x => x.AssemblyQualifiedName == this.AssemblyQualifiedEventName);
+            var eventType = Type.GetType(
+                payload.EventExecutionInfo.AssemblyQualifiedEventName,
+                throwOnError: true
+            );
 
             var eventData = (IEvent)
                 JsonConvert.DeserializeObject(this.SerializedJsonData, eventType);

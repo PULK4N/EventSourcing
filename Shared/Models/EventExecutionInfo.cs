@@ -5,6 +5,7 @@ namespace EventSourcing.Shared.Models
         public DateTime Timestamp { get; set; }
         public Guid AggregateId { get; set; }
         public Guid EventExecutor { get; set; }
+        public Guid? OnBehalfOf { get; set; }
         public string EventName { get; set; }
 
         public string AssemblyQualifiedEventName { get; set; }

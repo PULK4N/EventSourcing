@@ -1,9 +1,8 @@
 using EventSourcing.Shared.Models;
 
-namespace EventSourcing.Shared.Interfaces
+namespace EventSourcing.Shared.Interfaces;
+
+public interface IEvent
 {
-    public interface IEvent
-    {
-        object Apply(object stateData, EventExecutionInfo eventExecutionInfo);
-    }
+    object Apply(object stateData, EventExecutionInfo eventExecutionInfo);
 }

@@ -27,13 +27,14 @@ namespace EventSourcing.Persistence.Models
 
         public static SerializedPayloadMessage FromPayload(EventPayload payload)
         {
-            var serilalizedPayload = new SerializedPayloadMessage();
-
-            serilalizedPayload.SerializedEventExecutionInfo = JsonConvert.SerializeObject(
-                payload.EventExecutionInfo
-            );
-            serilalizedPayload.SerializedEventData = JsonConvert.SerializeObject(payload.EventData);
-            serilalizedPayload.AggregateId = payload.EventExecutionInfo.AggregateId;
+            var serilalizedPayload = new SerializedPayloadMessage
+            {
+                SerializedEventExecutionInfo = JsonConvert.SerializeObject(
+                    payload.EventExecutionInfo
+                ),
+                SerializedEventData = JsonConvert.SerializeObject(payload.EventData),
+                AggregateId = payload.EventExecutionInfo.AggregateId
+            };
 
             return serilalizedPayload;
         }
@@ -44,13 +45,10 @@ namespace EventSourcing.Persistence.Models
                 this.SerializedEventExecutionInfo
             );
 
-            var eventType = AppDomain
-                .CurrentDomain
-                .GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .FirstOrDefault(
-                    x => x.AssemblyQualifiedName == eventExecutionInfo.AssemblyQualifiedEventName
-                );
+            var eventType = Type.GetType(
+                eventExecutionInfo.AssemblyQualifiedEventName,
+                throwOnError: true
+            );
 
             var eventData = (IEvent)
                 JsonConvert.DeserializeObject(this.SerializedEventData, eventType);
