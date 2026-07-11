@@ -1,5 +1,6 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Shared.Containers;
+using EventSourcing.Shared.Exceptions;
 using Microsoft.Extensions.Configuration;
 
 namespace EventSourcing.Core.Providers

@@ -1,5 +1,6 @@
 using EventSourcing.Core.Providers;
 using EventSourcing.Core.Tests.TestModels;
+using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
