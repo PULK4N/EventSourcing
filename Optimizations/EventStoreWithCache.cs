@@ -1,5 +1,5 @@
-using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Persistence;
+using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Persistence.Models;
 using EventSourcing.Shared.Models;
 using LinqKit;
@@ -34,7 +34,7 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
 
         foreach (var aggregateId in distinctAggregateIds)
         {
-            var payloads = payloadsByAggregate.GetValueOrDefault(aggregateId) ?? [];
+            var payloads = payloadsByAggregate.GetValueOrDefault(aggregateId) ?? [ ];
             cache.Set(GetCacheKey(aggregateId), payloads);
             result.Add(aggregateId, payloads);
         }
@@ -42,13 +42,12 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
         return result;
     }
 
-    protected virtual IEnumerable<EventPayload> GetPayloadsFromCache(
-        params Guid[] aggregateIds
-    ) =>
-        aggregateIds.SelectMany(aggregateId =>
-            cache.TryGetValue(GetCacheKey(aggregateId), out EventPayload[]? payloads)
-                ? payloads ?? []
-                : []
+    protected virtual IEnumerable<EventPayload> GetPayloadsFromCache(params Guid[] aggregateIds) =>
+        aggregateIds.SelectMany(
+            aggregateId =>
+                cache.TryGetValue(GetCacheKey(aggregateId), out EventPayload[]? payloads)
+                    ? payloads ?? [ ]
+                    : [ ]
         );
 
     protected virtual async Task<IEnumerable<EventPayload>> GetMissingPayloads(
@@ -68,9 +67,9 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
         foreach (var aggregateId in aggregateIds)
         {
             var latestOrderNumber = latestOrderNumbers.GetValueOrDefault(aggregateId);
-            predicate = predicate.Or(payload =>
-                payload.AggregateId == aggregateId
-                && payload.OrderNumber > latestOrderNumber
+            predicate = predicate.Or(
+                payload =>
+                    payload.AggregateId == aggregateId && payload.OrderNumber > latestOrderNumber
             );
         }
 
@@ -79,10 +78,12 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
 
     public async Task Write(params EventPayload[] payloads)
     {
-        await sqlEventStore.Write(true, payloads);
+        await sqlEventStore.Write(payloads);
 
         // Force the next read to rebuild each affected aggregate from committed data.
-        foreach (var aggregateId in payloads.Select(x => x.EventExecutionInfo.AggregateId).Distinct())
+        foreach (
+            var aggregateId in payloads.Select(x => x.EventExecutionInfo.AggregateId).Distinct()
+        )
             cache.Remove(GetCacheKey(aggregateId));
     }
 

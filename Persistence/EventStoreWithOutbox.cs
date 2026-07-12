@@ -16,9 +16,11 @@ public class EventStoreWithOutbox(
 
     public async Task Write(params EventPayload[] payloads)
     {
-        await baseSqlEventStore.Write(false, payloads);
+        using var transaction = await applicationDbContext.Database.BeginTransactionAsync();
+        await baseSqlEventStore.Write(payloads);
         await outbox.Write(payloads);
         await applicationDbContext.SaveChangesAsync();
+        transaction.Commit();
     }
 
     // Can be rewritten to work with batches

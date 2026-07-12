@@ -40,7 +40,6 @@ public class Outbox : IOutbox
         await _applicationDbContext.SaveChangesAsync();
     }
 
-    // we don't save changes since it's not to be used without event store anyways
     public async Task Write(params EventPayload[] payloads)
     {
         var aggregateIds = payloads.Select(x => x.EventExecutionInfo.AggregateId);
@@ -50,5 +49,6 @@ public class Outbox : IOutbox
         await _applicationDbContext
             .SerializedPayloadMessage
             .AddRangeAsync(serializedPayloadMessages);
+        await _applicationDbContext.SaveChangesAsync();
     }
 }
