@@ -46,9 +46,7 @@ namespace EventSourcing.Persistence.Models
                 this.SerializedEventExecutionInfo
             );
 
-            var eventType = EventTypeContainer.GetEventType(
-                eventExecutionInfo.AssemblyQualifiedEventName
-            );
+            var eventType = EventTypeContainer.GetEventType(eventExecutionInfo.EventName);
 
             var eventData = (IEvent)
                 JsonConvert.DeserializeObject(this.SerializedEventData, eventType);

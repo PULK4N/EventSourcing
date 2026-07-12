@@ -18,10 +18,7 @@ public class EventStoreWithCacheTests : IDisposable
 
     static EventStoreWithCacheTests()
     {
-        EventTypeContainer.AddEventType(
-            typeof(TestEvent).AssemblyQualifiedName!,
-            typeof(TestEvent)
-        );
+        EventTypeContainer.AddEventType(typeof(TestEvent));
     }
 
     public EventStoreWithCacheTests()

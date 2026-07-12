@@ -43,27 +43,60 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
         return serializedPayloads.Select(x => x.Deserialize()).ToList();
     }
 
-    public async Task Write(bool commit, params EventPayload[] payloads)
+    public async Task Write(params EventPayload[] payloads)
     {
-        var serializedPayloads = payloads.Select(SerializedEventPayload.FromPayload);
-        var constraintsToAdd = payloads.SelectMany(
-            payload =>
-                payload
-                    .UniqueEventConstraintsToAdd
-                    .Select(constraint => new UniqueEventConstraint(payload, constraint))
+        GetConstraintsAndSerializedPayloads(
+            payloads,
+            out var serializedPayloads,
+            out var constraintsToAdd,
+            out var constraintsToRemove
         );
-        var constraintsToRemove = payloads.SelectMany(
-            payload =>
-                payload
-                    .UniqueEventConstraintsToRemove
-                    .Select(constraint => new UniqueEventConstraint(payload, constraint))
-        );
+
+        await using var transaction = await applicationDbContext.Database.BeginTransactionAsync();
 
         await applicationDbContext.SerializedEventPayload.AddRangeAsync(serializedPayloads);
-        await applicationDbContext.UniqueEventConstraints.AddRangeAsync(constraintsToAdd);
         applicationDbContext.UniqueEventConstraints.RemoveRange(constraintsToRemove);
+        await applicationDbContext.UniqueEventConstraints.AddRangeAsync(constraintsToAdd);
+        await applicationDbContext.SaveChangesAsync();
 
-        if (commit)
-            await applicationDbContext.SaveChangesAsync();
+        transaction.Commit();
+    }
+
+    private static void GetConstraintsAndSerializedPayloads(
+        EventPayload[] payloads,
+        out List<SerializedEventPayload> serializedPayloads,
+        out List<UniqueEventConstraint> constraintsToAdd,
+        out List<UniqueEventConstraint> constraintsToRemove
+    )
+    {
+        serializedPayloads = payloads.Select(SerializedEventPayload.FromPayload).ToList();
+        constraintsToAdd = payloads
+            .SelectMany(
+                payload =>
+                    payload
+                        .UniqueEventConstraintsToAdd
+                        .Select(constraint => new UniqueEventConstraint(payload, constraint))
+            )
+            .ToList();
+        constraintsToRemove = payloads
+            .SelectMany(
+                payload =>
+                    payload
+                        .UniqueEventConstraintsToRemove
+                        .Select(constraint => new UniqueEventConstraint(payload, constraint))
+            )
+            .ToList();
+        var duplicateHashes = constraintsToRemove
+            .Select(x => Convert.ToHexString(x.ConstraintHash))
+            .Intersect(
+                constraintsToAdd.Select(x => Convert.ToHexString(x.ConstraintHash)),
+                StringComparer.Ordinal
+            )
+            .ToArray();
+
+        if (duplicateHashes.Length > 0)
+            throw new InvalidOperationException(
+                "A unique constraint cannot be added and removed in the same write."
+            );
     }
 }

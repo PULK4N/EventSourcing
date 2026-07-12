@@ -6,37 +6,19 @@ using Microsoft.EntityFrameworkCore;
 namespace EventSourcing.Persistence;
 
 public class EventStoreWithOutbox(
-    BaseSqlEventStore baseSqlEventStore,
-    IOutbox outbox,
-    EventSourcingDbContext applicationDbContext
-) : IEventStore
+    EventSourcingDbContext applicationDbContext,
+    IEventStore _eventStore,
+    IOutbox _outbox
+) : IEventStoreWithOutbox
 {
-    public virtual Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateIds) =>
-        baseSqlEventStore.GetEvents(AggregateIds);
-
     public async Task Write(params EventPayload[] payloads)
     {
-        await baseSqlEventStore.Write(false, payloads);
-        await outbox.Write(payloads);
-        await applicationDbContext.SaveChangesAsync();
+        using var transaction = await applicationDbContext.Database.BeginTransactionAsync();
+        await _eventStore.Write(payloads);
+        await _outbox.Write(payloads);
+        transaction.Commit();
     }
 
-    // Can be rewritten to work with batches
-    public async Task<MessagePayload> GetLatestMessage()
-    {
-        var serializedMessage = await applicationDbContext
-            .SerializedPayloadMessage
-            .Where(x => x.Status == MessageStatus.New)
-            .FirstOrDefaultAsync();
-
-        if (serializedMessage is null)
-            return null;
-
-        serializedMessage.Status = MessageStatus.Reading;
-
-        applicationDbContext.Update(serializedMessage);
-        await applicationDbContext.SaveChangesAsync();
-
-        return serializedMessage.Deserialize();
-    }
+    public Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateId) =>
+        _eventStore.GetEvents(AggregateId);
 }

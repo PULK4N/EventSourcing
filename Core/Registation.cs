@@ -1,3 +1,4 @@
+using System.Reflection;
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
 using EventSourcing.Shared.Containers;
@@ -9,24 +10,27 @@ namespace EventSourcing.Core
 {
     public static class Registration
     {
-        public static IServiceCollection RegisterEventSourcingCoreInjection(
-            this IServiceCollection services
+        public static IServiceCollection RegisterEventSourcingCore(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
         )
         {
-            var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-
             services.AddScoped<OrderNumberHelper>();
             services.AddScoped<StateMachineHandler>();
-            services.RegisterStateDataTypes();
-            services.RegisterEventTypes();
+            services.RegisterStateDataTypes(applicationAssemblies);
+            services.RegisterEventTypes(applicationAssemblies);
+            services.RegisterUniqueEventConstraintCreators(applicationAssemblies);
+            services.AddSingleton<
+                IStateMachineDefinitionProvider,
+                YamlStateMachineDefinitionProvider
+            >();
             // services.RegisterHookTypes();
             services.AddScoped<IEventValidatorProvider, DefaultEventValidatorProvider>();
+            services.AddScoped<IStateDataProvider, StateMachineStateDataProvider>();
             services.AddScoped<
                 IUniqueEventConstraintProvider,
-                DefaultUniqueEventConstraintProvider
+                StateMachineUniqueEventConstraintProvider
             >();
-
-            services.RegisterDevEnvironmentProviders();
 
             return services;
         }
@@ -49,10 +53,13 @@ namespace EventSourcing.Core
             return services;
         }
 
-        public static IServiceCollection RegisterStateDataTypes(this IServiceCollection services)
+        public static IServiceCollection RegisterStateDataTypes(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
+        )
         {
             var interfaceType = typeof(ISharedStateData);
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = applicationAssemblies;
 
             var allImplementations = assemblies
                 .SelectMany(a => a.GetTypes())
@@ -63,16 +70,19 @@ namespace EventSourcing.Core
             foreach (var implementation in allImplementations)
             {
                 if (implementation is Type type)
-                    StateDataTypeContainer.AddStateDataType(implementation.ToString(), type);
+                    StateDataTypeContainer.AddStateDataType(type);
             }
 
             return services;
         }
 
-        public static IServiceCollection RegisterEventTypes(this IServiceCollection services)
+        public static IServiceCollection RegisterEventTypes(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
+        )
         {
             var interfaceType = typeof(IEvent);
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = applicationAssemblies;
 
             var allImplementations = assemblies
                 .SelectMany(a => a.GetTypes())
@@ -83,7 +93,30 @@ namespace EventSourcing.Core
             foreach (var implementation in allImplementations)
             {
                 if (implementation is Type type)
-                    EventTypeContainer.AddEventType(implementation.AssemblyQualifiedName, type);
+                    EventTypeContainer.AddEventType(type);
+            }
+
+            return services;
+        }
+
+        public static IServiceCollection RegisterUniqueEventConstraintCreators(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
+        )
+        {
+            var interfaceType = typeof(IUniqueConstraintCreator);
+            var assemblies = applicationAssemblies;
+
+            var allImplementations = assemblies
+                .SelectMany(a => a.GetTypes())
+                .Where(type => interfaceType.IsAssignableFrom(type))
+                .Where(type => !type.IsInterface)
+                .Where(type => !type.IsAbstract);
+
+            foreach (var implementation in allImplementations)
+            {
+                if (implementation is Type type)
+                    ConstraintCreatorTypeContainer.AddUniqueEventConstraintCreator(type);
             }
 
             return services;

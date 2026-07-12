@@ -9,6 +9,7 @@ namespace EventSourcing.Core;
 
 public class StateMachineHandler(
     IEventStore _eventStore,
+    IEventStoreWithOutbox _eventStoreWithOutbox,
     IEventValidatorProvider _validatorProvider,
     IUniqueEventConstraintProvider _uniqueEventConstraintProvider,
     IStateDataProvider _stateDataProvider,
@@ -35,6 +36,11 @@ public class StateMachineHandler(
             var existingEventsByAggregate = existingEvents[aggregateId]
                 .OrderBy(x => x.EventExecutionInfo.OrderNumber)
                 .ToList();
+            ValidateSingleStateMachine(
+                aggregateId,
+                aggregateEventsToExecute,
+                existingEventsByAggregate
+            );
 
             var stateInfo = await GenerateStateInfo(
                 existingEventsByAggregate,
@@ -44,9 +50,27 @@ public class StateMachineHandler(
             stateInfoDictionary.Add(aggregateId, stateInfo);
         }
 
-        await _eventStore.Write(eventsToExecute);
+        await _eventStoreWithOutbox.Write(eventsToExecute);
 
         return stateInfoDictionary;
+    }
+
+    private static void ValidateSingleStateMachine(
+        Guid aggregateId,
+        List<EventPayload> aggregateEventsToExecute,
+        List<EventPayload> existingEventsByAggregate
+    )
+    {
+        var stateMachineIds = aggregateEventsToExecute
+            .Concat(existingEventsByAggregate)
+            .Select(x => x.EventExecutionInfo.StateMachineId)
+            .ToHashSet();
+
+        if (stateMachineIds.Count > 1)
+            throw new InvalidOperationException(
+                $"Events for aggregate '{aggregateId}' belong to multiple state machines: "
+                    + string.Join(", ", stateMachineIds)
+            );
     }
 
     // TODO: think how to implement impersonate
@@ -116,7 +140,8 @@ public class StateMachineHandler(
         stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
         stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
         var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(payload);
-        await Validate(stateData, postrequisiteValidators.Select(x => x as IEventValidator));
+        if (newPayloads.Contains(payload))
+            await Validate(stateData, postrequisiteValidators.Select(x => x as IEventValidator));
         return stateData;
     }
 

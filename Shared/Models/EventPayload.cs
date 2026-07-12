@@ -24,7 +24,6 @@ namespace EventSourcing.Shared.Models
                 {
                     Id = Guid.NewGuid(),
                     EventName = eventData.GetType().Name,
-                    AssemblyQualifiedEventName = eventData.GetType().AssemblyQualifiedName,
                     Timestamp = DateTime.UtcNow,
                     StateMachineId = stateMachineId,
                     EventExecutor = eventExecutor,

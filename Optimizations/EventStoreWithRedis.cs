@@ -112,6 +112,6 @@ namespace EventSourcing.Optimizations
             }
         }
 
-        public Task Write(params EventPayload[] payloads) => _sqlEventStore.Write(true, payloads);
+        public Task Write(params EventPayload[] payloads) => _sqlEventStore.Write(payloads);
     }
 }

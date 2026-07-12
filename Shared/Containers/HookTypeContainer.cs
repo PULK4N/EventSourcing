@@ -10,10 +10,13 @@ namespace EventSourcing.Shared.Containers
             hookTypes.Add(name, hook);
         }
 
-        public static Type? GetHookType(string name)
+        public static Type GetHookType(string name)
         {
             if (!hookTypes.ContainsKey(name))
-                return null;
+                throw new ArgumentNullException(
+                    $"Hook type with name '{name}' not found.",
+                    nameof(name)
+                );
             return hookTypes[name];
         }
     }

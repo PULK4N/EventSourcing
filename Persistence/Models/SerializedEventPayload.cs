@@ -14,7 +14,6 @@ namespace EventSourcing.Persistence.Models
         public Guid EventExecutor { get; set; }
         public string EventName { get; set; } = string.Empty;
 
-        public string AssemblyQualifiedEventName { get; set; } = string.Empty;
         public string StateMachineId { get; set; } = string.Empty;
         public string SerializedJsonData { get; set; } = string.Empty;
 
@@ -28,7 +27,6 @@ namespace EventSourcing.Persistence.Models
                 OrderNumber = payload.EventExecutionInfo.OrderNumber,
                 EventExecutor = payload.EventExecutionInfo.EventExecutor,
                 EventName = payload.EventExecutionInfo.EventName,
-                AssemblyQualifiedEventName = payload.EventExecutionInfo.AssemblyQualifiedEventName,
                 StateMachineId = payload.EventExecutionInfo.StateMachineId,
                 SerializedJsonData = JsonConvert.SerializeObject(payload.EventData)
             };
@@ -45,7 +43,6 @@ namespace EventSourcing.Persistence.Models
                     AggregateId = this.AggregateId,
                     EventExecutor = this.EventExecutor,
                     EventName = this.EventName,
-                    AssemblyQualifiedEventName = this.AssemblyQualifiedEventName,
                     Id = this.Id,
                     OrderNumber = this.OrderNumber,
                     StateMachineId = this.StateMachineId,
@@ -53,7 +50,7 @@ namespace EventSourcing.Persistence.Models
                 }
             };
 
-            var eventType = EventTypeContainer.GetEventType(AssemblyQualifiedEventName);
+            var eventType = EventTypeContainer.GetEventType(EventName);
 
             var eventData = (IEvent)
                 JsonConvert.DeserializeObject(this.SerializedJsonData, eventType);
