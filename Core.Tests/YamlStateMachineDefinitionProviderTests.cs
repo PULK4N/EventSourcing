@@ -173,12 +173,12 @@ public sealed class UniqueEmailConstraint : IUniqueConstraintCreator<YamlUserSta
     public IEnumerable<UniqueEventConstraintData> CreateConstraintsToRemove(
         YamlUserStateData stateBeforeEvent,
         EventPayload payload
-    ) => [ ];
+    ) => [ new UniqueEventConstraintData("email", "removed-email") ];
 
     public IEnumerable<UniqueEventConstraintData> CreateConstraintsToAdd(
         YamlUserStateData stateAfterEvent,
         EventPayload payload
-    ) => [ ];
+    ) => [ new UniqueEventConstraintData("email", "added-email") ];
 }
 
 public sealed class UniqueUsernameConstraint : IUniqueConstraintCreator<YamlUserStateData>
@@ -186,10 +186,10 @@ public sealed class UniqueUsernameConstraint : IUniqueConstraintCreator<YamlUser
     public IEnumerable<UniqueEventConstraintData> CreateConstraintsToRemove(
         YamlUserStateData stateBeforeEvent,
         EventPayload payload
-    ) => [ ];
+    ) => [ new UniqueEventConstraintData("username", "removed-username") ];
 
     public IEnumerable<UniqueEventConstraintData> CreateConstraintsToAdd(
         YamlUserStateData stateAfterEvent,
         EventPayload payload
-    ) => [ ];
+    ) => [ new UniqueEventConstraintData("username", "added-username") ];
 }

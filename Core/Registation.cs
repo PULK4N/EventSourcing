@@ -13,8 +13,6 @@ namespace EventSourcing.Core
             this IServiceCollection services
         )
         {
-            var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-
             services.AddScoped<OrderNumberHelper>();
             services.AddScoped<StateMachineHandler>();
             services.RegisterStateDataTypes();
@@ -26,12 +24,11 @@ namespace EventSourcing.Core
             >();
             // services.RegisterHookTypes();
             services.AddScoped<IEventValidatorProvider, DefaultEventValidatorProvider>();
+            services.AddScoped<IStateDataProvider, StateMachineStateDataProvider>();
             services.AddScoped<
                 IUniqueEventConstraintProvider,
-                DefaultUniqueEventConstraintProvider
+                StateMachineUniqueEventConstraintProvider
             >();
-
-            services.RegisterDevEnvironmentProviders();
 
             return services;
         }
