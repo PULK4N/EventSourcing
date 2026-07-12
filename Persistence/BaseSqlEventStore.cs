@@ -60,8 +60,8 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
         );
 
         await applicationDbContext.SerializedEventPayload.AddRangeAsync(serializedPayloads);
-        await applicationDbContext.UniqueEventConstraints.AddRangeAsync(constraintsToAdd);
         applicationDbContext.UniqueEventConstraints.RemoveRange(constraintsToRemove);
+        await applicationDbContext.UniqueEventConstraints.AddRangeAsync(constraintsToAdd);
 
         if (commit)
             await applicationDbContext.SaveChangesAsync();
