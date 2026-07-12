@@ -3,10 +3,10 @@ using EventSourcing.Core.Tests.TestModels;
 using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Models;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace EventSourcing.Core.Tests;
 
+[Collection(StaticTypeContainerCollection.Name)]
 public class AppSettingsConfigurationStateDataProviderUnitTest
 {
     public IConfiguration CreateConfiguration(Dictionary<string, string?> configurationDict)
@@ -21,13 +21,6 @@ public class AppSettingsConfigurationStateDataProviderUnitTest
     [Fact]
     public void StateMachineNotSetInConfigurationTest()
     {
-        var services = new ServiceCollection();
-        try
-        {
-            services.RegisterStateDataTypes();
-        }
-        catch (Exception) { }
-
         var myConfiguration = new Dictionary<string, string?>
         {
             { "Key1", "Value1" },
@@ -77,13 +70,6 @@ public class AppSettingsConfigurationStateDataProviderUnitTest
 
         var stateDataProvider = new AppSettingsConfigurationStateDataProvider(configuration);
 
-        var services = new ServiceCollection();
-        try
-        {
-            services.RegisterStateDataTypes();
-        }
-        catch (Exception) { }
-
         var transferMoneyEventData = new TransferMoney() { MoneySent = 1000 };
 
         var payload = EventPayload.Create(
@@ -125,13 +111,6 @@ public class AppSettingsConfigurationStateDataProviderUnitTest
         var configuration = CreateConfiguration(myConfiguration);
 
         var stateDataProvider = new AppSettingsConfigurationStateDataProvider(configuration);
-
-        var services = new ServiceCollection();
-        try
-        {
-            services.RegisterStateDataTypes();
-        }
-        catch (Exception) { }
 
         var transferMoneyEventData = new TransferMoney() { MoneySent = 1000 };
 

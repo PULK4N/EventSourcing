@@ -1,10 +1,10 @@
 namespace EventSourcing.Shared.Models
 {
-    public interface IUniqueConstraintCreator<TStateData>
+    public interface IUniqueConstraintCreator { }
+
+    public interface IUniqueConstraintCreator<TStateData> : IUniqueConstraintCreator
         where TStateData : ISharedStateData
     {
-        string Id { get; }
-
         IEnumerable<UniqueEventConstraintData> CreateConstraintsToRemove(
             TStateData stateBeforeEvent,
             EventPayload payload

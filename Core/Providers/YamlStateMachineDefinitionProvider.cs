@@ -1,5 +1,6 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Models;
+using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Exceptions;
 using Microsoft.Extensions.Configuration;
 using YamlDotNet.Serialization;
@@ -111,6 +112,8 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
                 $"State machine '{definition.Id}' must define stateData."
             );
 
+        StateDataTypeContainer.GetStateDataType(definition.StateData);
+
         definition.Projections ??=  [ ];
         definition.Events ??=  [ ];
         ValidateIds(definition.Projections, $"state machine '{definition.Id}' projections");
@@ -126,6 +129,7 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
                 throw new InvalidOperationException(
                     $"Event '{eventName}' in state machine '{definition.Id}' has no definition."
                 );
+            EventTypeContainer.GetEventType(eventName);
 
             eventDefinition.UniqueConstraints ??=  [ ];
             eventDefinition.Projections ??=  [ ];
