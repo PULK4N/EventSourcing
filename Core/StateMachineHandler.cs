@@ -29,33 +29,19 @@ public class StateMachineHandler(
 
         foreach (var aggregateId in aggregateIds)
         {
-            var aggregateEventsToExecute = eventsToExecute.Where(
-                x => x.EventExecutionInfo.AggregateId == aggregateId
-            );
+            var aggregateEventsToExecute = eventsToExecute
+                .Where(x => x.EventExecutionInfo.AggregateId == aggregateId)
+                .ToList();
             var existingEventsByAggregate = existingEvents[aggregateId]
-                .ToList()
-                .OrderBy(x => x.EventExecutionInfo.OrderNumber);
+                .OrderBy(x => x.EventExecutionInfo.OrderNumber)
+                .ToList();
 
             var stateInfo = await GenerateStateInfo(
-                aggregateId,
                 existingEventsByAggregate,
                 aggregateEventsToExecute
             );
 
             stateInfoDictionary.Add(aggregateId, stateInfo);
-        }
-
-        foreach (var payload in eventsToExecute)
-        {
-            payload.UniqueEventConstraintsToAdd.Clear();
-            payload
-                .UniqueEventConstraintsToAdd
-                .AddRange(_uniqueEventConstraintProvider.GetConstraintsToAdd(payload));
-
-            payload.UniqueEventConstraintsToRemove.Clear();
-            payload
-                .UniqueEventConstraintsToRemove
-                .AddRange(_uniqueEventConstraintProvider.GetConstraintsToRemove(payload));
         }
 
         await _eventStore.Write(eventsToExecute);
@@ -72,21 +58,24 @@ public class StateMachineHandler(
     // But since we have the same executor, how do we know that he executed it?
     // We can since it's from the SAME SCOPE, and impersonating instance is registered as SCOPED.
     public async Task<StateInfo> GenerateStateInfo(
-        Guid aggregateId,
-        IEnumerable<EventPayload> existingEvents,
-        IEnumerable<EventPayload> aggregateEventsToExecute
+        List<EventPayload> existingEvents,
+        List<EventPayload> aggregateEventsToExecute
     )
     {
         _orderNumberHelper.AssignOrderNumbers(existingEvents, aggregateEventsToExecute);
 
-        var events = existingEvents
+        var allEvents = existingEvents
             .Concat(aggregateEventsToExecute)
-            .OrderBy(x => x.EventExecutionInfo.OrderNumber);
+            .OrderBy(x => x.EventExecutionInfo.OrderNumber)
+            .ToList();
 
-        return await Calculate(events);
+        return await Calculate(allEvents, aggregateEventsToExecute);
     }
 
-    public async Task<StateInfo> Calculate(IEnumerable<EventPayload> eventPayloads)
+    public async Task<StateInfo> Calculate(
+        List<EventPayload> eventPayloads,
+        List<EventPayload> newPayloads
+    )
     {
         var firstEventData = eventPayloads.First();
         var stateMachineId = firstEventData.EventExecutionInfo.StateMachineId;
@@ -98,24 +87,52 @@ public class StateMachineHandler(
             stateMachineId,
             firstEventData.EventExecutionInfo.AggregateId
         );
+        var newPayloadsSet = new HashSet<EventPayload>(newPayloads);
 
         foreach (var payload in eventPayloads)
         {
-            var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(
-                payload
-            );
-            await Validate(stateData, prerequisiteValidators.Select(x => x as IEventValidator));
-            stateData = payload.EventData.Apply(stateData, payload.EventExecutionInfo);
-            stateInfo.StateData = stateData;
-            stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
-            stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
-            var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(
-                payload
-            );
-            await Validate(stateData, postrequisiteValidators.Select(x => x as IEventValidator));
+            stateData = await Calculate(stateData, stateInfo, payload, newPayloadsSet);
         }
 
         return stateInfo;
+    }
+
+    private async Task<object> Calculate(
+        object stateData,
+        StateInfo stateInfo,
+        EventPayload payload,
+        HashSet<EventPayload> newPayloads
+    )
+    {
+        var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(payload);
+        await Validate(stateData, prerequisiteValidators.Select(x => x as IEventValidator));
+
+        if (newPayloads.Contains(payload))
+            stateData = ApplyEventAndSetConstraints(stateData, payload);
+        else
+            stateData = payload.EventData.Apply(stateData, payload.EventExecutionInfo);
+
+        stateInfo.StateData = stateData;
+        stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
+        stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
+        var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(payload);
+        await Validate(stateData, postrequisiteValidators.Select(x => x as IEventValidator));
+        return stateData;
+    }
+
+    private object ApplyEventAndSetConstraints(object stateData, EventPayload payload)
+    {
+        payload.UniqueEventConstraintsToRemove.Clear();
+        payload
+            .UniqueEventConstraintsToRemove
+            .AddRange(_uniqueEventConstraintProvider.GetConstraintsToRemove(stateData, payload));
+        stateData = payload.EventData.Apply(stateData, payload.EventExecutionInfo);
+
+        payload.UniqueEventConstraintsToAdd.Clear();
+        payload
+            .UniqueEventConstraintsToAdd
+            .AddRange(_uniqueEventConstraintProvider.GetConstraintsToAdd(stateData, payload));
+        return stateData;
     }
 
     private async Task Validate(object stateData, IEnumerable<IEventValidator> validators)
