@@ -45,10 +45,24 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
 
     public async Task Write(bool commit, params EventPayload[] payloads)
     {
-        var aggregateIds = payloads.Select(x => x.EventExecutionInfo.AggregateId);
         var serializedPayloads = payloads.Select(SerializedEventPayload.FromPayload);
+        var constraintsToAdd = payloads.SelectMany(
+            payload =>
+                payload
+                    .UniqueEventConstraintsToAdd
+                    .Select(constraint => new UniqueEventConstraint(payload, constraint))
+        );
+        var constraintsToRemove = payloads.SelectMany(
+            payload =>
+                payload
+                    .UniqueEventConstraintsToRemove
+                    .Select(constraint => new UniqueEventConstraint(payload, constraint))
+        );
 
         await applicationDbContext.SerializedEventPayload.AddRangeAsync(serializedPayloads);
+        await applicationDbContext.UniqueEventConstraints.AddRangeAsync(constraintsToAdd);
+        applicationDbContext.UniqueEventConstraints.RemoveRange(constraintsToRemove);
+
         if (commit)
             await applicationDbContext.SaveChangesAsync();
     }

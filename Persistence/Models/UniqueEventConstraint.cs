@@ -18,22 +18,22 @@ public class UniqueEventConstraint
     private UniqueEventConstraint() { }
 
     [SetsRequiredMembers]
-    public UniqueEventConstraint(EventPayload payload, string constraintName, string valueToHash)
+    public UniqueEventConstraint(EventPayload payload, UniqueEventConstraintData constraint)
     {
-        if (valueToHash.Trim().IsNullOrEmpty())
-            throw new ArgumentNullException(nameof(valueToHash));
+        if (constraint.ValueToHash.Trim().IsNullOrEmpty())
+            throw new ArgumentNullException(nameof(constraint.ValueToHash));
 
         var executionInfo = payload.EventExecutionInfo;
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         AppendHashComponent(hash, executionInfo.StateMachineId);
-        AppendHashComponent(hash, constraintName);
-        AppendHashComponent(hash, valueToHash);
+        AppendHashComponent(hash, constraint.ConstraintName);
+        AppendHashComponent(hash, constraint.ValueToHash);
 
         ConstraintHash = hash.GetHashAndReset();
         AggregateId = executionInfo.AggregateId;
         OrderNumber = executionInfo.OrderNumber;
-        ConstraintName = constraintName;
+        ConstraintName = constraint.ConstraintName;
         StateMachineId = executionInfo.StateMachineId;
     }
 

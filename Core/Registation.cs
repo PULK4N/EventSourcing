@@ -21,6 +21,10 @@ namespace EventSourcing.Core
             services.RegisterEventTypes();
             // services.RegisterHookTypes();
             services.AddScoped<IEventValidatorProvider, DefaultEventValidatorProvider>();
+            services.AddScoped<
+                IUniqueEventConstraintProvider,
+                DefaultUniqueEventConstraintProvider
+            >();
 
             services.RegisterDevEnvironmentProviders();
 

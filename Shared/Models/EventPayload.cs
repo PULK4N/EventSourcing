@@ -8,6 +8,8 @@ namespace EventSourcing.Shared.Models
 
         public EventExecutionInfo EventExecutionInfo { get; set; }
         public IEvent EventData { get; set; }
+        public List<UniqueEventConstraintData> UniqueEventConstraintsToAdd { get; } = [];
+        public List<UniqueEventConstraintData> UniqueEventConstraintsToRemove { get; } = [];
 
         public static EventPayload Create(
             Guid eventExecutor,
