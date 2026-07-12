@@ -1,3 +1,4 @@
+using System.Reflection;
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
 using EventSourcing.Shared.Containers;
@@ -9,15 +10,16 @@ namespace EventSourcing.Core
 {
     public static class Registration
     {
-        public static IServiceCollection RegisterEventSourcingCoreInjection(
-            this IServiceCollection services
+        public static IServiceCollection RegisterEventSourcingCore(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
         )
         {
             services.AddScoped<OrderNumberHelper>();
             services.AddScoped<StateMachineHandler>();
-            services.RegisterStateDataTypes();
-            services.RegisterEventTypes();
-            services.RegisterUniqueEventConstraintCreators();
+            services.RegisterStateDataTypes(applicationAssemblies);
+            services.RegisterEventTypes(applicationAssemblies);
+            services.RegisterUniqueEventConstraintCreators(applicationAssemblies);
             services.AddSingleton<
                 IStateMachineDefinitionProvider,
                 YamlStateMachineDefinitionProvider
@@ -51,10 +53,13 @@ namespace EventSourcing.Core
             return services;
         }
 
-        public static IServiceCollection RegisterStateDataTypes(this IServiceCollection services)
+        public static IServiceCollection RegisterStateDataTypes(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
+        )
         {
             var interfaceType = typeof(ISharedStateData);
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = applicationAssemblies;
 
             var allImplementations = assemblies
                 .SelectMany(a => a.GetTypes())
@@ -71,10 +76,13 @@ namespace EventSourcing.Core
             return services;
         }
 
-        public static IServiceCollection RegisterEventTypes(this IServiceCollection services)
+        public static IServiceCollection RegisterEventTypes(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
+        )
         {
             var interfaceType = typeof(IEvent);
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = applicationAssemblies;
 
             var allImplementations = assemblies
                 .SelectMany(a => a.GetTypes())
@@ -92,11 +100,12 @@ namespace EventSourcing.Core
         }
 
         public static IServiceCollection RegisterUniqueEventConstraintCreators(
-            this IServiceCollection services
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
         )
         {
             var interfaceType = typeof(IUniqueConstraintCreator);
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblies = applicationAssemblies;
 
             var allImplementations = assemblies
                 .SelectMany(a => a.GetTypes())

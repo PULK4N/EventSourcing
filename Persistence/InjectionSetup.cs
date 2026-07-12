@@ -12,8 +12,9 @@ public static class InjectionSetup
         IConfiguration configuration
     )
     {
-        service.AddScoped<IEventStore, EventStoreWithOutbox>();
+        service.AddScoped<IEventStore, EventStore>();
         service.AddScoped<IOutbox, Outbox>();
+        service.AddScoped<IEventStoreWithOutbox, EventStoreWithOutbox>();
         service.AddScoped<BaseSqlEventStore>();
 
         var connectionString = configuration.GetConnectionString("ApplicationDatabase");

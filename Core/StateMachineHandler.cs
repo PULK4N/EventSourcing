@@ -9,6 +9,7 @@ namespace EventSourcing.Core;
 
 public class StateMachineHandler(
     IEventStore _eventStore,
+    IEventStoreWithOutbox _eventStoreWithOutbox,
     IEventValidatorProvider _validatorProvider,
     IUniqueEventConstraintProvider _uniqueEventConstraintProvider,
     IStateDataProvider _stateDataProvider,
@@ -49,7 +50,7 @@ public class StateMachineHandler(
             stateInfoDictionary.Add(aggregateId, stateInfo);
         }
 
-        await _eventStore.Write(eventsToExecute);
+        await _eventStoreWithOutbox.Write(eventsToExecute);
 
         return stateInfoDictionary;
     }
@@ -139,7 +140,8 @@ public class StateMachineHandler(
         stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
         stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
         var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(payload);
-        await Validate(stateData, postrequisiteValidators.Select(x => x as IEventValidator));
+        if (newPayloads.Contains(payload))
+            await Validate(stateData, postrequisiteValidators.Select(x => x as IEventValidator));
         return stateData;
     }
 
