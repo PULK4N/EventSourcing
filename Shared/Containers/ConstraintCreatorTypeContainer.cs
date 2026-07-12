@@ -1,25 +1,32 @@
-using EventSourcing.Shared.Exceptions;
-using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 
 namespace EventSourcing.Shared.Containers;
 
 public static class ConstraintCreatorTypeContainer
 {
-    private static readonly Dictionary<string, Type> eventTypes = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, IUniqueConstraintCreator> constraintCreators =
+        new(StringComparer.Ordinal);
 
-    public static void AddUniqueEventConstraintCreatorType(Type uniqueEventConstraintCreatorType)
+    public static void AddUniqueEventConstraintCreator(Type constraintCreatorType)
     {
-        ValidateUniqueEventConstraintCreatorType(uniqueEventConstraintCreatorType);
+        ValidateUniqueEventConstraintCreatorType(constraintCreatorType);
 
-        eventTypes.Add(uniqueEventConstraintCreatorType.Name, uniqueEventConstraintCreatorType);
+        if (Activator.CreateInstance(constraintCreatorType) is not IUniqueConstraintCreator creator)
+            throw new InvalidOperationException(
+                $"Constraint creator '{constraintCreatorType.FullName}' must have a public "
+                    + "parameterless constructor."
+            );
+
+        constraintCreators.Add(constraintCreatorType.Name, creator);
     }
 
-    public static Type GetUniqueEventConstraintCreatorType(string name)
+    public static IUniqueConstraintCreator GetUniqueEventConstraintCreator(string name)
     {
-        return eventTypes.TryGetValue(name, out var eventType)
-            ? eventType
-            : throw new EventNotRegisteredException(name);
+        return constraintCreators.TryGetValue(name, out var creator)
+            ? creator
+            : throw new InvalidOperationException(
+                $"Unique constraint creator '{name}' is not registered."
+            );
     }
 
     private static void ValidateUniqueEventConstraintCreatorType(
@@ -32,18 +39,19 @@ public static class ConstraintCreatorTypeContainer
                 nameof(uniqueEventConstraintCreatorType)
             );
 
-        var UniqueEventConstraintCreatorTypeName = uniqueEventConstraintCreatorType.Name;
+        var creatorName = uniqueEventConstraintCreatorType.Name;
 
-        if (eventTypes.TryGetValue(UniqueEventConstraintCreatorTypeName, out var registeredType))
+        if (constraintCreators.TryGetValue(creatorName, out var registeredCreator))
         {
-            if (registeredType == uniqueEventConstraintCreatorType)
+            if (registeredCreator.GetType() == uniqueEventConstraintCreatorType)
                 throw new InvalidOperationException(
-                    $"Duplicate registration of uniqueEventConstraintCreatorType with name '{registeredType.FullName}'."
+                    $"Duplicate registration of constraint creator "
+                        + $"'{uniqueEventConstraintCreatorType.FullName}'."
                 );
 
             throw new InvalidOperationException(
-                $"Unique Event ConstraintCreator name '{UniqueEventConstraintCreatorTypeName}' is already registered for "
-                    + $"'{registeredType.FullName}'."
+                $"Unique constraint creator name '{creatorName}' is already registered for "
+                    + $"'{registeredCreator.GetType().FullName}'."
             );
         }
     }

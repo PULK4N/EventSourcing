@@ -1,4 +1,5 @@
 using EventSourcing.Core.Providers;
+using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
@@ -25,8 +26,8 @@ public class YamlStateMachineDefinitionProviderTests
                 events:
                   YamlUserCreated:
                     uniqueConstraints:
-                      - unique-email
-                      - unique-username
+                      - UniqueEmailConstraint
+                      - UniqueUsernameConstraint
                     projections:
                       - user-search
                 """
@@ -38,13 +39,29 @@ public class YamlStateMachineDefinitionProviderTests
             Assert.Equal("YamlUserStateData", definition.StateData);
             Assert.Equal([ "user-audit" ], definition.Projections);
             var userCreated = definition.Events["YamlUserCreated"];
-            Assert.Equal([ "unique-email", "unique-username" ], userCreated.UniqueConstraints);
+            Assert.Equal(
+                [ "UniqueEmailConstraint", "UniqueUsernameConstraint" ],
+                userCreated.UniqueConstraints
+            );
             Assert.Equal([ "user-search" ], userCreated.Projections);
         }
         finally
         {
             Directory.Delete(directoryPath, recursive: true);
         }
+    }
+
+    [Fact]
+    public void ReusesRegisteredConstraintCreatorInstances()
+    {
+        var first = ConstraintCreatorTypeContainer.GetUniqueEventConstraintCreator(
+            nameof(UniqueEmailConstraint)
+        );
+        var second = ConstraintCreatorTypeContainer.GetUniqueEventConstraintCreator(
+            nameof(UniqueEmailConstraint)
+        );
+
+        Assert.Same(first, second);
     }
 
     [Fact]
@@ -140,7 +157,7 @@ public class YamlStateMachineDefinitionProviderTests
     }
 }
 
-internal sealed class YamlUserStateData : ISharedStateData
+public sealed class YamlUserStateData : ISharedStateData
 {
     public Guid Id { get; set; }
     public bool IsDeleted { get; set; }
@@ -149,4 +166,30 @@ internal sealed class YamlUserStateData : ISharedStateData
 internal sealed class YamlUserCreated : IEvent
 {
     public object Apply(object stateData, EventExecutionInfo eventExecutionInfo) => stateData;
+}
+
+public sealed class UniqueEmailConstraint : IUniqueConstraintCreator<YamlUserStateData>
+{
+    public IEnumerable<UniqueEventConstraintData> CreateConstraintsToRemove(
+        YamlUserStateData stateBeforeEvent,
+        EventPayload payload
+    ) => [ ];
+
+    public IEnumerable<UniqueEventConstraintData> CreateConstraintsToAdd(
+        YamlUserStateData stateAfterEvent,
+        EventPayload payload
+    ) => [ ];
+}
+
+public sealed class UniqueUsernameConstraint : IUniqueConstraintCreator<YamlUserStateData>
+{
+    public IEnumerable<UniqueEventConstraintData> CreateConstraintsToRemove(
+        YamlUserStateData stateBeforeEvent,
+        EventPayload payload
+    ) => [ ];
+
+    public IEnumerable<UniqueEventConstraintData> CreateConstraintsToAdd(
+        YamlUserStateData stateAfterEvent,
+        EventPayload payload
+    ) => [ ];
 }

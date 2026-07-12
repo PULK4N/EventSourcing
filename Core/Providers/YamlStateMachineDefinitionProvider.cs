@@ -138,6 +138,11 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
                 $"event '{eventName}' unique constraints"
             );
             ValidateIds(eventDefinition.Projections, $"event '{eventName}' projections");
+
+            foreach (var constraintName in eventDefinition.UniqueConstraints)
+            {
+                ConstraintCreatorTypeContainer.GetUniqueEventConstraintCreator(constraintName);
+            }
         }
     }
 

@@ -110,9 +110,7 @@ namespace EventSourcing.Core
             foreach (var implementation in allImplementations)
             {
                 if (implementation is Type type)
-                    ConstraintCreatorTypeContainer.AddUniqueEventConstraintCreatorType(
-                        type
-                    );
+                    ConstraintCreatorTypeContainer.AddUniqueEventConstraintCreator(type);
             }
 
             return services;
