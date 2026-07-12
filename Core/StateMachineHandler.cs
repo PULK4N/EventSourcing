@@ -128,20 +128,31 @@ public class StateMachineHandler(
         HashSet<EventPayload> newPayloads
     )
     {
-        var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(payload);
-        await Validate(stateData, prerequisiteValidators.Select(x => x as IEventValidator));
-
         if (newPayloads.Contains(payload))
+        {
+            var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(
+                payload
+            );
+            await Validate(stateData, prerequisiteValidators.Select(x => x as IEventValidator));
+
             stateData = ApplyEventAndSetConstraints(stateData, payload);
+        }
         else
+        {
             stateData = payload.EventData.Apply(stateData, payload.EventExecutionInfo);
+        }
 
         stateInfo.StateData = stateData;
         stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
         stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
-        var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(payload);
+
         if (newPayloads.Contains(payload))
+        {
+            var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(
+                payload
+            );
             await Validate(stateData, postrequisiteValidators.Select(x => x as IEventValidator));
+        }
         return stateData;
     }
 

@@ -10,6 +10,7 @@ namespace EventSourcing.Core.Tests;
 
 public class StateMachineHandlerUniqueConstraintTests
 {
+    private readonly Mock<IEventStoreWithOutbox> _eventStoreWithOutbox = new(MockBehavior.Strict);
     private readonly Mock<IEventStore> _eventStore = new(MockBehavior.Strict);
     private readonly Mock<IUniqueEventConstraintProvider> _constraintProvider =
         new(MockBehavior.Strict);
@@ -31,6 +32,7 @@ public class StateMachineHandlerUniqueConstraintTests
 
         _handler = new StateMachineHandler(
             _eventStore.Object,
+            _eventStoreWithOutbox.Object,
             _validatorProvider.Object,
             _constraintProvider.Object,
             _stateDataProvider.Object,

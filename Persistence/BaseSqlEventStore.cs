@@ -52,14 +52,10 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
             out var constraintsToRemove
         );
 
-        await using var transaction = await applicationDbContext.Database.BeginTransactionAsync();
-
-        await applicationDbContext.SerializedEventPayload.AddRangeAsync(serializedPayloads);
         applicationDbContext.UniqueEventConstraints.RemoveRange(constraintsToRemove);
+        await applicationDbContext.SerializedEventPayload.AddRangeAsync(serializedPayloads);
         await applicationDbContext.UniqueEventConstraints.AddRangeAsync(constraintsToAdd);
         await applicationDbContext.SaveChangesAsync();
-
-        transaction.Commit();
     }
 
     private static void GetConstraintsAndSerializedPayloads(
