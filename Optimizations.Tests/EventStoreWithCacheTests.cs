@@ -116,6 +116,24 @@ public class EventStoreWithCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task Write_PersistsUniqueConstraintsFromPayload()
+    {
+        var payload = CreateEvent(Guid.NewGuid(), 1);
+        payload
+            .UniqueEventConstraintsToAdd
+            .Add(new UniqueEventConstraintData("email", "user@example.com"));
+
+        await _eventStore.Write(payload);
+
+        var constraint = await _dbContext.UniqueEventConstraints.SingleAsync();
+        Assert.Equal(32, constraint.ConstraintHash.Length);
+        Assert.Equal(payload.EventExecutionInfo.AggregateId, constraint.AggregateId);
+        Assert.Equal(payload.EventExecutionInfo.OrderNumber, constraint.OrderNumber);
+        Assert.Equal("email", constraint.ConstraintName);
+        Assert.Equal(payload.EventExecutionInfo.StateMachineId, constraint.StateMachineId);
+    }
+
+    [Fact]
     public async Task GetEvents_ReturnsEmptyArrayForAggregateWithoutEvents()
     {
         var aggregateId = Guid.NewGuid();

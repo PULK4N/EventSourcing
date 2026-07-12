@@ -1,4 +1,4 @@
-using EventSourcing.Core.Interfaces;
+using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Persistence.Models;
 using EventSourcing.Shared.Models;
 using Microsoft.EntityFrameworkCore;

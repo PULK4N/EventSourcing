@@ -1,5 +1,6 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
+using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Models;
 using Shared.Interfaces;
@@ -9,6 +10,7 @@ namespace EventSourcing.Core;
 public class StateMachineHandler(
     IEventStore _eventStore,
     IEventValidatorProvider _validatorProvider,
+    IUniqueEventConstraintProvider _uniqueEventConstraintProvider,
     IStateDataProvider _stateDataProvider,
     OrderNumberHelper _orderNumberHelper
 )
@@ -43,7 +45,20 @@ public class StateMachineHandler(
             stateInfoDictionary.Add(aggregateId, stateInfo);
         }
 
-        await _eventStore.Write(eventsToExecute.ToArray());
+        foreach (var payload in eventsToExecute)
+        {
+            payload.UniqueEventConstraintsToAdd.Clear();
+            payload
+                .UniqueEventConstraintsToAdd
+                .AddRange(_uniqueEventConstraintProvider.GetConstraintsToAdd(payload));
+
+            payload.UniqueEventConstraintsToRemove.Clear();
+            payload
+                .UniqueEventConstraintsToRemove
+                .AddRange(_uniqueEventConstraintProvider.GetConstraintsToRemove(payload));
+        }
+
+        await _eventStore.Write(eventsToExecute);
 
         return stateInfoDictionary;
     }
