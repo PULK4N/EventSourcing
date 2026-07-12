@@ -1,6 +1,7 @@
 using System.Reflection;
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
+using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
@@ -20,12 +21,14 @@ namespace EventSourcing.Core
             services.RegisterStateDataTypes(applicationAssemblies);
             services.RegisterEventTypes(applicationAssemblies);
             services.RegisterUniqueEventConstraintCreators(applicationAssemblies);
+            services.RegisterProjectors(applicationAssemblies);
             services.AddSingleton<
                 IStateMachineDefinitionProvider,
                 YamlStateMachineDefinitionProvider
             >();
             // services.RegisterHookTypes();
             services.AddScoped<IEventValidatorProvider, DefaultEventValidatorProvider>();
+            services.AddScoped<IOutbox, ProjectionOutbox>();
             services.AddScoped<IStateDataProvider, StateMachineStateDataProvider>();
             services.AddScoped<
                 IUniqueEventConstraintProvider,
@@ -118,6 +121,24 @@ namespace EventSourcing.Core
                 if (implementation is Type type)
                     ConstraintCreatorTypeContainer.AddUniqueEventConstraintCreator(type);
             }
+
+            return services;
+        }
+
+        public static IServiceCollection RegisterProjectors(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
+        )
+        {
+            var projectorType = typeof(IEventProjector);
+            var projectorImplementations = applicationAssemblies
+                .SelectMany(assembly => assembly.GetTypes())
+                .Where(type => projectorType.IsAssignableFrom(type))
+                .Where(type => !type.IsInterface)
+                .Where(type => !type.IsAbstract);
+
+            foreach (var implementation in projectorImplementations)
+                services.AddScoped(projectorType, implementation);
 
             return services;
         }

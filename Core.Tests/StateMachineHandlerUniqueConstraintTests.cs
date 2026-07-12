@@ -51,7 +51,7 @@ public class StateMachineHandlerUniqueConstraintTests
             .ReturnsAsync(
                 new Dictionary<Guid, EventPayload[]> { [aggregateId] =  [ existingEvent ] }
             );
-        _eventStore
+        _eventStoreWithOutbox
             .Setup(store => store.Write(It.IsAny<EventPayload[]>()))
             .Returns(Task.CompletedTask);
 
@@ -102,7 +102,7 @@ public class StateMachineHandlerUniqueConstraintTests
             provider => provider.GetConstraintsToAdd(It.IsAny<object>(), newEvent),
             Times.Once
         );
-        _eventStore.Verify(
+        _eventStoreWithOutbox.Verify(
             store =>
                 store.Write(
                     It.Is<EventPayload[]>(

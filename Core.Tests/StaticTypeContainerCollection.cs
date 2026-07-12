@@ -13,8 +13,9 @@ public sealed class StaticTypeContainerFixture
     public StaticTypeContainerFixture()
     {
         var services = new ServiceCollection();
-        services.RegisterStateDataTypes();
-        services.RegisterEventTypes();
-        services.RegisterUniqueEventConstraintCreators();
+        var applicationAssembly = typeof(StaticTypeContainerFixture).Assembly;
+        services.RegisterStateDataTypes(applicationAssembly);
+        services.RegisterEventTypes(applicationAssembly);
+        services.RegisterUniqueEventConstraintCreators(applicationAssembly);
     }
 }
