@@ -35,6 +35,11 @@ public class StateMachineHandler(
             var existingEventsByAggregate = existingEvents[aggregateId]
                 .OrderBy(x => x.EventExecutionInfo.OrderNumber)
                 .ToList();
+            ValidateSingleStateMachine(
+                aggregateId,
+                aggregateEventsToExecute,
+                existingEventsByAggregate
+            );
 
             var stateInfo = await GenerateStateInfo(
                 existingEventsByAggregate,
@@ -47,6 +52,24 @@ public class StateMachineHandler(
         await _eventStore.Write(eventsToExecute);
 
         return stateInfoDictionary;
+    }
+
+    private static void ValidateSingleStateMachine(
+        Guid aggregateId,
+        List<EventPayload> aggregateEventsToExecute,
+        List<EventPayload> existingEventsByAggregate
+    )
+    {
+        var stateMachineIds = aggregateEventsToExecute
+            .Concat(existingEventsByAggregate)
+            .Select(x => x.EventExecutionInfo.StateMachineId)
+            .ToHashSet();
+
+        if (stateMachineIds.Count > 1)
+            throw new InvalidOperationException(
+                $"Events for aggregate '{aggregateId}' belong to multiple state machines: "
+                    + string.Join(", ", stateMachineIds)
+            );
     }
 
     // TODO: think how to implement impersonate
