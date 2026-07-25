@@ -1,4 +1,5 @@
 using EventSourcing.Persistence.Interfaces;
+using EventSourcing.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,9 +20,21 @@ public static class InjectionSetup
 
         var connectionString = configuration.GetConnectionString("ApplicationDatabase");
         var contextOptions = new DbContextOptionsBuilder<EventSourcingDbContext>();
-        service.AddDbContext<EventSourcingDbContext>(
-            options => options.UseSqlServer(connectionString)
-        );
+
+        var useSqlServerConfig = configuration["UseSqlServer"]?.ToString() ?? "true";
+
+        bool.TryParse(useSqlServerConfig, out var useSqlServer);
+
+        if (useSqlServer)
+        {
+            service.AddDbContext<EventSourcingDbContext>(options =>
+            {
+                options.UseSqlServer(connectionString);
+            });
+            DatabaseFriendlyGuidGenerator.SetDefaultGuidGenerationDatabase(
+                UUIDNext.Database.SqlServer
+            );
+        }
 
         return service;
     }

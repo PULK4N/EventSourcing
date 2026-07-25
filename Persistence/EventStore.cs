@@ -10,8 +10,9 @@ public class EventStore(
     EventSourcingDbContext applicationDbContext
 ) : IEventStore
 {
-    public virtual Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateIds) =>
-        baseSqlEventStore.GetEvents(AggregateIds);
+    public virtual Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(
+        params AggregateId[] AggregateIds
+    ) => baseSqlEventStore.GetEvents(AggregateIds);
 
     public async Task Write(params EventPayload[] payloads)
     {

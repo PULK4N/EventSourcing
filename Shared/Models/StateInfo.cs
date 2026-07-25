@@ -6,7 +6,7 @@ namespace EventSourcing.Shared.Models
      */
     public class StateInfo
     {
-        public Guid AggregateId { get; set; }
+        public AggregateId AggregateId { get; set; }
         public uint CurrentOrderNumber { get; set; }
         public DateTime LastUpdateTimestamp { get; set; }
         public string StateMachineId { get; set; } = string.Empty;
@@ -17,7 +17,11 @@ namespace EventSourcing.Shared.Models
 
         private StateInfo() { }
 
-        public static StateInfo Create(object stateData, string stateMachineId, Guid aggregateId)
+        public static StateInfo Create(
+            object stateData,
+            string stateMachineId,
+            AggregateId aggregateId
+        )
         {
             var stateInfo = new StateInfo();
             stateInfo.CurrentOrderNumber = 1;

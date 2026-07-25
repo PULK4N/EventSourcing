@@ -8,12 +8,12 @@ namespace EventSourcing.Shared.Models
 
         public EventExecutionInfo EventExecutionInfo { get; set; }
         public IEvent EventData { get; set; }
-        public List<UniqueEventConstraintData> UniqueEventConstraintsToAdd { get; } = [];
-        public List<UniqueEventConstraintData> UniqueEventConstraintsToRemove { get; } = [];
+        public List<UniqueEventConstraintData> UniqueEventConstraintsToAdd { get; } = [ ];
+        public List<UniqueEventConstraintData> UniqueEventConstraintsToRemove { get; } = [ ];
 
         public static EventPayload Create(
-            Guid eventExecutor,
-            Guid aggregateId,
+            EventExecutor eventExecutor,
+            AggregateId aggregateId,
             string stateMachineId,
             IEvent eventData
         )
@@ -22,7 +22,6 @@ namespace EventSourcing.Shared.Models
             {
                 EventExecutionInfo = new EventExecutionInfo
                 {
-                    Id = Guid.NewGuid(),
                     EventName = eventData.GetType().Name,
                     Timestamp = DateTime.UtcNow,
                     StateMachineId = stateMachineId,

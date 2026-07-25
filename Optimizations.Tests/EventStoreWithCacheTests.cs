@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EventSourcing.Optimizations;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Models;
@@ -39,12 +40,16 @@ public class EventStoreWithCacheTests : IDisposable
         var secondEvent = CreateEvent(aggregateId, 2);
         await Seed(firstEvent, secondEvent);
 
+        var events = new List<EventPayload>() { firstEvent, secondEvent };
+        var serializedEvents = JsonSerializer.Serialize(events, new JsonSerializerOptions());
         var result = await _eventStore.GetEvents(aggregateId);
-
-        Assert.Equal(
-            [ firstEvent.EventExecutionInfo.Id, secondEvent.EventExecutionInfo.Id ],
-            result[aggregateId].Select(payload => payload.EventExecutionInfo.Id)
+        var resultValues = result.SelectMany(x => x.Value).ToList();
+        var serializedResultValues = JsonSerializer.Serialize(
+            resultValues,
+            new JsonSerializerOptions()
         );
+        Assert.Equal(serializedEvents, serializedResultValues);
+
         Assert.True(
             _cache.TryGetValue<EventPayload[]>(GetCacheKey(aggregateId), out var cachedEvents)
         );

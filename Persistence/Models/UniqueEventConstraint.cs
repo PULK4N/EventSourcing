@@ -31,7 +31,7 @@ public class UniqueEventConstraint
         AppendHashComponent(hash, constraint.ValueToHash);
 
         ConstraintHash = hash.GetHashAndReset();
-        AggregateId = executionInfo.AggregateId;
+        AggregateId = executionInfo.AggregateId.Value;
         OrderNumber = executionInfo.OrderNumber;
         ConstraintName = constraint.ConstraintName;
         StateMachineId = executionInfo.StateMachineId;

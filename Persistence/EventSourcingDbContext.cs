@@ -1,4 +1,5 @@
 using EventSourcing.Persistence.Models;
+using EventSourcing.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace EventSourcing.Persistence;
@@ -14,10 +15,7 @@ public class EventSourcingDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
-        builder
-            .Entity<SerializedEventPayload>()
-            .HasIndex(ep => new { ep.AggregateId, ep.OrderNumber })
-            .IsUnique();
+        builder.Entity<SerializedEventPayload>().HasKey(e => new { e.AggregateId, e.OrderNumber });
 
         builder.Entity<UniqueEventConstraint>(entity =>
         {

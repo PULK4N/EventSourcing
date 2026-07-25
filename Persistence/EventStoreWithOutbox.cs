@@ -19,6 +19,7 @@ public class EventStoreWithOutbox(
         transaction.Commit();
     }
 
-    public Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateId) =>
-        _eventStore.GetEvents(AggregateId);
+    public Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(
+        params AggregateId[] AggregateId
+    ) => _eventStore.GetEvents(AggregateId);
 }

@@ -9,7 +9,7 @@ public class EventValidationResult
     public required string State { get; set; }
     public required string StateMachineId { get; set; }
     public required uint OrderNumber { get; set; }
-    public required Guid AggregateId { get; set; }
+    public required AggregateId AggregateId { get; set; }
 
     public required bool Succeded { get; set; }
     public string? FailureReason { get; set; }
