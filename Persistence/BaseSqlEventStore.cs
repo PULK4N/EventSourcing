@@ -11,14 +11,16 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
         params AggregateId[] AggregateIds
     )
     {
-        var aggregateGuids = AggregateIds.Select(x => x.Value);
+        var aggregateGuids = AggregateIds.Select(x => x.Value).Distinct();
         var serializedPayloads = await applicationDbContext
             .SerializedEventPayload
             .Where(x => aggregateGuids.Contains(x.AggregateId))
             .AsNoTracking()
             .ToListAsync();
 
-        var payloads = serializedPayloads.Select(x => x.Deserialize());
+        var payloads = serializedPayloads
+            .Select(x => x.Deserialize())
+            .ToList();
 
         var eventsDictionary = new Dictionary<AggregateId, EventPayload[]>();
 

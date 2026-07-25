@@ -159,7 +159,7 @@ public class YamlStateMachineDefinitionProviderTests
 
 public sealed class YamlUserStateData : ISharedStateData
 {
-    public Guid Id { get; set; }
+    public AggregateId Id { get; set; }
     public bool IsDeleted { get; set; }
 }
 

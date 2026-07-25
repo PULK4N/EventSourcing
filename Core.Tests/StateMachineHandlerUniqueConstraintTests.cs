@@ -43,15 +43,18 @@ public class StateMachineHandlerUniqueConstraintTests
     [Fact]
     public async Task ExecuteEvents_UsesStateBeforeAndAfterEventForConstraints()
     {
-        var aggregateId = Guid.NewGuid();
+        var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         var existingEvent = CreateEvent(aggregateId, "old@example.com", 1);
         var newEvent = CreateEvent(aggregateId, "new@example.com");
         _eventStore
-            .Setup(store => store.GetEvents(It.IsAny<Guid[]>()))
+            .Setup(store => store.GetEvents(It.IsAny<AggregateId[]>()))
             .ReturnsAsync(
-                new Dictionary<Guid, EventPayload[]> { [aggregateId] =  [ existingEvent ] }
+                new Dictionary<AggregateId, EventPayload[]>
+                {
+                    [aggregateId] = [ existingEvent ]
+                }
             );
-        _eventStore
+        _eventStoreWithOutbox
             .Setup(store => store.Write(It.IsAny<EventPayload[]>()))
             .Returns(Task.CompletedTask);
 
@@ -102,7 +105,7 @@ public class StateMachineHandlerUniqueConstraintTests
             provider => provider.GetConstraintsToAdd(It.IsAny<object>(), newEvent),
             Times.Once
         );
-        _eventStore.Verify(
+        _eventStoreWithOutbox.Verify(
             store =>
                 store.Write(
                     It.Is<EventPayload[]>(
@@ -116,7 +119,11 @@ public class StateMachineHandlerUniqueConstraintTests
     [Fact]
     public async Task Calculate_DoesNotCreateConstraintsForHistoricalEvents()
     {
-        var historicalEvent = CreateEvent(Guid.NewGuid(), "historical@example.com", 1);
+        var historicalEvent = CreateEvent(
+            AggregateId.FromDatabaseGuid(Guid.NewGuid()),
+            "historical@example.com",
+            1
+        );
 
         await _handler.Calculate([ historicalEvent ], [ ]);
 
@@ -125,10 +132,14 @@ public class StateMachineHandlerUniqueConstraintTests
         Assert.Empty(historicalEvent.UniqueEventConstraintsToAdd);
     }
 
-    private static EventPayload CreateEvent(Guid aggregateId, string email, uint orderNumber = 0)
+    private static EventPayload CreateEvent(
+        AggregateId aggregateId,
+        string email,
+        uint orderNumber = 0
+    )
     {
         var payload = EventPayload.Create(
-            Guid.NewGuid(),
+            EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
             aggregateId,
             "users-state-machine",
             new SetEmailEvent(email)
@@ -139,7 +150,7 @@ public class StateMachineHandlerUniqueConstraintTests
 
     private sealed class TestStateData : ISharedStateData
     {
-        public Guid Id { get; set; }
+        public AggregateId Id { get; set; }
         public bool IsDeleted { get; set; }
         public string? Email { get; set; }
     }

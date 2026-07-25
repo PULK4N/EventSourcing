@@ -1,15 +1,15 @@
-namespace EventSourcing.Shared.Models
-{
-    public class EventExecutionInfo
-    {
-        public DateTime Timestamp { get; set; }
-        public AggregateId AggregateId { get; set; }
-        public EventExecutor EventExecutor { get; set; }
-        public EventExecutor? OnBehalfOf { get; set; }
-        public string EventName { get; set; }
+namespace EventSourcing.Shared.Models;
 
-        public uint OrderNumber { get; set; }
-        public string StateMachineId { get; set; }
-        public string NewState { get; set; }
-    }
+public class EventExecutionInfo
+{
+    public DateTime Timestamp { get; init; }
+    public AggregateId AggregateId { get; init; }
+    public EventExecutor EventExecutor { get; init; }
+    public EventExecutor? OnBehalfOf { get; init; }
+    public uint OrderNumber { get; set; }
+    # nullable disable
+    public string EventName { get; init; }
+    public string StateMachineId { get; init; }
+    public string NewState { get; init; }
+    #nullable enable
 }

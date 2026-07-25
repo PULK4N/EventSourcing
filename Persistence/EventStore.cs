@@ -17,11 +17,10 @@ public class EventStore(
     public async Task Write(params EventPayload[] payloads)
     {
         await baseSqlEventStore.Write(payloads);
-        await applicationDbContext.SaveChangesAsync();
     }
 
     // Can be rewritten to work with batches
-    public async Task<MessagePayload> GetLatestMessage()
+    public async Task<MessagePayload?> GetLatestMessage()
     {
         var serializedMessage = await applicationDbContext
             .SerializedPayloadMessage
