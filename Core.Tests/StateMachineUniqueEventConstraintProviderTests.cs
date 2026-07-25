@@ -35,8 +35,8 @@ public class StateMachineUniqueEventConstraintProviderTests
             );
         var provider = new StateMachineUniqueEventConstraintProvider(definitions.Object);
         var payload = EventPayload.Create(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+            EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
+            AggregateId.FromDatabaseGuid(Guid.NewGuid()),
             "users-state-machine",
             new YamlUserCreated()
         );
@@ -72,8 +72,8 @@ public class StateMachineUniqueEventConstraintProviderTests
             );
         var provider = new StateMachineUniqueEventConstraintProvider(definitions.Object);
         var payload = EventPayload.Create(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+            EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
+            AggregateId.FromDatabaseGuid(Guid.NewGuid()),
             "users-state-machine",
             new YamlUserCreated()
         );

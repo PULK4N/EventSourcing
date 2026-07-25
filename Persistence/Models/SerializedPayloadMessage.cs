@@ -34,7 +34,7 @@ namespace EventSourcing.Persistence.Models
                     payload.EventExecutionInfo
                 ),
                 SerializedEventData = JsonConvert.SerializeObject(payload.EventData),
-                AggregateId = payload.EventExecutionInfo.AggregateId
+                AggregateId = payload.EventExecutionInfo.AggregateId.Value
             };
 
             return serilalizedPayload;

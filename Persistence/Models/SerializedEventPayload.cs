@@ -7,7 +7,6 @@ namespace EventSourcing.Persistence.Models
 {
     public class SerializedEventPayload
     {
-        public Guid Id { get; set; }
         public DateTime Timestamp { get; set; }
         public Guid AggregateId { get; set; }
         public uint OrderNumber { get; set; }
@@ -21,11 +20,10 @@ namespace EventSourcing.Persistence.Models
         {
             var serilalizedPayload = new SerializedEventPayload
             {
-                Id = payload.EventExecutionInfo.Id,
                 Timestamp = payload.EventExecutionInfo.Timestamp,
-                AggregateId = payload.EventExecutionInfo.AggregateId,
+                AggregateId = payload.EventExecutionInfo.AggregateId.Value,
                 OrderNumber = payload.EventExecutionInfo.OrderNumber,
-                EventExecutor = payload.EventExecutionInfo.EventExecutor,
+                EventExecutor = payload.EventExecutionInfo.EventExecutor.Value,
                 EventName = payload.EventExecutionInfo.EventName,
                 StateMachineId = payload.EventExecutionInfo.StateMachineId,
                 SerializedJsonData = JsonConvert.SerializeObject(payload.EventData)
@@ -40,10 +38,17 @@ namespace EventSourcing.Persistence.Models
             {
                 EventExecutionInfo = new EventExecutionInfo()
                 {
-                    AggregateId = this.AggregateId,
-                    EventExecutor = this.EventExecutor,
+                    AggregateId = EventSourcing
+                        .Shared
+                        .Models
+                        .AggregateId
+                        .FromDatabaseGuid(this.AggregateId),
+                    EventExecutor = EventSourcing
+                        .Shared
+                        .Models
+                        .EventExecutor
+                        .FromDatabaseGuid(this.EventExecutor),
                     EventName = this.EventName,
-                    Id = this.Id,
                     OrderNumber = this.OrderNumber,
                     StateMachineId = this.StateMachineId,
                     Timestamp = this.Timestamp

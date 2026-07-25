@@ -10,17 +10,17 @@ public class EventStore(
     EventSourcingDbContext applicationDbContext
 ) : IEventStore
 {
-    public virtual Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateIds) =>
-        baseSqlEventStore.GetEvents(AggregateIds);
+    public virtual Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(
+        params AggregateId[] AggregateIds
+    ) => baseSqlEventStore.GetEvents(AggregateIds);
 
     public async Task Write(params EventPayload[] payloads)
     {
         await baseSqlEventStore.Write(payloads);
-        await applicationDbContext.SaveChangesAsync();
     }
 
     // Can be rewritten to work with batches
-    public async Task<MessagePayload> GetLatestMessage()
+    public async Task<MessagePayload?> GetLatestMessage()
     {
         var serializedMessage = await applicationDbContext
             .SerializedPayloadMessage

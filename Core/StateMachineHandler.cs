@@ -16,7 +16,7 @@ public class StateMachineHandler(
     OrderNumberHelper _orderNumberHelper
 )
 {
-    public async Task<Dictionary<Guid, StateInfo>> ExecuteEvents(
+    public async Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
         params EventPayload[] eventsToExecute
     )
     {
@@ -26,7 +26,7 @@ public class StateMachineHandler(
             .ToArray();
         var existingEvents = await _eventStore.GetEvents(aggregateIds);
 
-        var stateInfoDictionary = new Dictionary<Guid, StateInfo>();
+        var stateInfoDictionary = new Dictionary<AggregateId, StateInfo>();
 
         foreach (var aggregateId in aggregateIds)
         {
@@ -56,7 +56,7 @@ public class StateMachineHandler(
     }
 
     private static void ValidateSingleStateMachine(
-        Guid aggregateId,
+        AggregateId aggregateId,
         List<EventPayload> aggregateEventsToExecute,
         List<EventPayload> existingEventsByAggregate
     )

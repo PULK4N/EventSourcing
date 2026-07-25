@@ -16,9 +16,10 @@ public class EventStoreWithOutbox(
         using var transaction = await applicationDbContext.Database.BeginTransactionAsync();
         await _eventStore.Write(payloads);
         await _outbox.Write(payloads);
-        transaction.Commit();
+        await transaction.CommitAsync();
     }
 
-    public Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateId) =>
-        _eventStore.GetEvents(AggregateId);
+    public Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(
+        params AggregateId[] AggregateId
+    ) => _eventStore.GetEvents(AggregateId);
 }

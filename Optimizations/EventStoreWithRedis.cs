@@ -1,7 +1,6 @@
-using System.Linq;
 using System.Linq.Expressions;
-using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Persistence;
+using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Persistence.Models;
 using EventSourcing.Shared.Models;
 using LinqKit;
@@ -29,17 +28,20 @@ namespace EventSourcing.Optimizations
             _database = redis.GetDatabase();
         }
 
-        public async Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateIds)
+        public async Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(
+            params AggregateId[] aggregateIds
+        )
         {
-            var payloadsFromCache = await GetPayloadsFromCache(AggregateIds);
+            var payloadsFromCache = await GetPayloadsFromCache(aggregateIds);
 
-            var missingPayloads = await GetMissingPayloads(payloadsFromCache, AggregateIds);
+            var aggregateIdGuids = aggregateIds.Select(x => x.Value).ToArray();
+            var missingPayloads = await GetMissingPayloads(payloadsFromCache, aggregateIdGuids);
 
             var payloads = missingPayloads.Concat(payloadsFromCache);
 
-            var eventsDictionary = new Dictionary<Guid, EventPayload[]>();
+            var eventsDictionary = new Dictionary<AggregateId, EventPayload[]>();
 
-            foreach (var aggregateId in AggregateIds)
+            foreach (var aggregateId in aggregateIds)
             {
                 var aggregateEvents = payloads
                     .Where(x => x.EventExecutionInfo.AggregateId == aggregateId)
@@ -51,7 +53,7 @@ namespace EventSourcing.Optimizations
         }
 
         protected virtual async Task<IEnumerable<EventPayload>> GetPayloadsFromCache(
-            params Guid[] aggregateIds
+            params AggregateId[] aggregateIds
         )
         {
             var redisKeys = aggregateIds
@@ -64,7 +66,7 @@ namespace EventSourcing.Optimizations
                 .Where(x => x.HasValue)
                 .Select(x => JsonConvert.DeserializeObject<SerializedEventPayload>(x.ToString()));
 
-            var payloads = cachedResultsDeserialized.Select(x => x.Deserialize());
+            var payloads = cachedResultsDeserialized.Select(x => x!.Deserialize());
 
             return payloads;
         }
@@ -75,9 +77,15 @@ namespace EventSourcing.Optimizations
         )
         {
             var aggregateIdsWithOrderNumber = cachedPayloads
-                .GroupBy(x => x.EventExecutionInfo.Id)
+                .GroupBy(x => x.EventExecutionInfo.AggregateId)
                 .Select(gr => gr.OrderByDescending(x => x.EventExecutionInfo.OrderNumber).First())
-                .Select(x => (x.EventExecutionInfo.AggregateId, x.EventExecutionInfo.OrderNumber))
+                .Select(
+                    x =>
+                        (
+                            AggregateId: x.EventExecutionInfo.AggregateId.Value,
+                            OrderNumber: x.EventExecutionInfo.OrderNumber
+                        )
+                )
                 .ToList();
 
             AddMissingAggregateIds(aggregateIdsWithOrderNumber, aggregateIds);

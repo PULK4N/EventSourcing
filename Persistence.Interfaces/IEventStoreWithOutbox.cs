@@ -6,5 +6,5 @@ public interface IEventStoreWithOutbox
 {
     Task Write(params EventPayload[] payloads);
 
-    Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateId);
+    Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(params AggregateId[] AggregateId);
 }

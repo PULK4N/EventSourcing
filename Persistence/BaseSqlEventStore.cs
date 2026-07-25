@@ -7,22 +7,28 @@ namespace EventSourcing.Persistence;
 
 public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
 {
-    public async Task<Dictionary<Guid, EventPayload[]>> GetEvents(params Guid[] AggregateIds)
+    public async Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(
+        params AggregateId[] AggregateIds
+    )
     {
+        var aggregateGuids = AggregateIds.Select(x => x.Value).Distinct();
         var serializedPayloads = await applicationDbContext
             .SerializedEventPayload
-            .Where(x => AggregateIds.Contains(x.AggregateId))
+            .Where(x => aggregateGuids.Contains(x.AggregateId))
             .AsNoTracking()
             .ToListAsync();
 
-        var payloads = serializedPayloads.Select(x => x.Deserialize());
+        var payloads = serializedPayloads
+            .Select(x => x.Deserialize())
+            .ToList();
 
-        var eventsDictionary = new Dictionary<Guid, EventPayload[]>();
+        var eventsDictionary = new Dictionary<AggregateId, EventPayload[]>();
 
         foreach (var aggregateId in AggregateIds)
         {
             var aggregateEvents = payloads
                 .Where(x => x.EventExecutionInfo.AggregateId == aggregateId)
+                .OrderBy(x => x.EventExecutionInfo.OrderNumber)
                 .ToArray();
             eventsDictionary.Add(aggregateId, aggregateEvents);
         }

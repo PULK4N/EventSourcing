@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EventSourcing.Optimizations;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Models;
@@ -34,17 +35,21 @@ public class EventStoreWithCacheTests : IDisposable
     [Fact]
     public async Task GetEvents_LoadsEventsFromSqlAndStoresThemInCache()
     {
-        var aggregateId = Guid.NewGuid();
+        var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         var firstEvent = CreateEvent(aggregateId, 1);
         var secondEvent = CreateEvent(aggregateId, 2);
         await Seed(firstEvent, secondEvent);
 
+        var events = new List<EventPayload>() { firstEvent, secondEvent };
+        var serializedEvents = JsonSerializer.Serialize(events, new JsonSerializerOptions());
         var result = await _eventStore.GetEvents(aggregateId);
-
-        Assert.Equal(
-            [ firstEvent.EventExecutionInfo.Id, secondEvent.EventExecutionInfo.Id ],
-            result[aggregateId].Select(payload => payload.EventExecutionInfo.Id)
+        var resultValues = result.SelectMany(x => x.Value).ToList();
+        var serializedResultValues = JsonSerializer.Serialize(
+            resultValues,
+            new JsonSerializerOptions()
         );
+        Assert.Equal(serializedEvents, serializedResultValues);
+
         Assert.True(
             _cache.TryGetValue<EventPayload[]>(GetCacheKey(aggregateId), out var cachedEvents)
         );
@@ -54,7 +59,7 @@ public class EventStoreWithCacheTests : IDisposable
     [Fact]
     public async Task GetEvents_AppendsEventsAddedAfterAggregateWasCached()
     {
-        var aggregateId = Guid.NewGuid();
+        var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         var firstEvent = CreateEvent(aggregateId, 1);
         await Seed(firstEvent);
         await _eventStore.GetEvents(aggregateId);
@@ -77,8 +82,8 @@ public class EventStoreWithCacheTests : IDisposable
     [Fact]
     public async Task GetEvents_ReturnsEventsForEachDistinctAggregate()
     {
-        var firstAggregateId = Guid.NewGuid();
-        var secondAggregateId = Guid.NewGuid();
+        var firstAggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
+        var secondAggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         await Seed(CreateEvent(firstAggregateId, 1), CreateEvent(secondAggregateId, 1));
 
         var result = await _eventStore.GetEvents(
@@ -100,7 +105,7 @@ public class EventStoreWithCacheTests : IDisposable
     [Fact]
     public async Task Write_PersistsEventsAndInvalidatesAffectedCacheEntries()
     {
-        var aggregateId = Guid.NewGuid();
+        var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         await Seed(CreateEvent(aggregateId, 1));
         await _eventStore.GetEvents(aggregateId);
         Assert.True(_cache.TryGetValue(GetCacheKey(aggregateId), out _));
@@ -115,7 +120,7 @@ public class EventStoreWithCacheTests : IDisposable
     [Fact]
     public async Task Write_PersistsUniqueConstraintsFromPayload()
     {
-        var payload = CreateEvent(Guid.NewGuid(), 1);
+        var payload = CreateEvent(AggregateId.FromDatabaseGuid(Guid.NewGuid()), 1);
         payload
             .UniqueEventConstraintsToAdd
             .Add(new UniqueEventConstraintData("email", "user@example.com"));
@@ -124,7 +129,7 @@ public class EventStoreWithCacheTests : IDisposable
 
         var constraint = await _dbContext.UniqueEventConstraints.SingleAsync();
         Assert.Equal(32, constraint.ConstraintHash.Length);
-        Assert.Equal(payload.EventExecutionInfo.AggregateId, constraint.AggregateId);
+        Assert.Equal(payload.EventExecutionInfo.AggregateId.Value, constraint.AggregateId);
         Assert.Equal(payload.EventExecutionInfo.OrderNumber, constraint.OrderNumber);
         Assert.Equal("email", constraint.ConstraintName);
         Assert.Equal(payload.EventExecutionInfo.StateMachineId, constraint.StateMachineId);
@@ -133,7 +138,7 @@ public class EventStoreWithCacheTests : IDisposable
     [Fact]
     public async Task GetEvents_ReturnsEmptyArrayForAggregateWithoutEvents()
     {
-        var aggregateId = Guid.NewGuid();
+        var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
 
         var result = await _eventStore.GetEvents(aggregateId);
 
@@ -159,10 +164,10 @@ public class EventStoreWithCacheTests : IDisposable
         _dbContext.ChangeTracker.Clear();
     }
 
-    private static EventPayload CreateEvent(Guid aggregateId, uint orderNumber)
+    private static EventPayload CreateEvent(AggregateId aggregateId, uint orderNumber)
     {
         var payload = EventPayload.Create(
-            Guid.NewGuid(),
+            EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
             aggregateId,
             "cache-tests",
             new TestEvent { Value = (int)orderNumber }
@@ -171,7 +176,8 @@ public class EventStoreWithCacheTests : IDisposable
         return payload;
     }
 
-    private static string GetCacheKey(Guid aggregateId) => "inMemoryEventStore:" + aggregateId;
+    private static string GetCacheKey(AggregateId aggregateId) =>
+        "inMemoryEventStore:" + aggregateId;
 
     private sealed class TestEvent : IEvent
     {
