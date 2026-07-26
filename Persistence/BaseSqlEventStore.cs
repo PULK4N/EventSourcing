@@ -18,9 +18,7 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
             .AsNoTracking()
             .ToListAsync();
 
-        var payloads = serializedPayloads
-            .Select(x => x.Deserialize())
-            .ToList();
+        var payloads = serializedPayloads.Select(x => x.Deserialize()).ToList();
 
         var eventsDictionary = new Dictionary<AggregateId, EventPayload[]>();
 
@@ -49,7 +47,7 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
         return serializedPayloads.Select(x => x.Deserialize()).ToList();
     }
 
-    public async Task Write(params EventPayload[] payloads)
+    public async Task Write(List<EventPayload> payloads)
     {
         GetConstraintsAndSerializedPayloads(
             payloads,
@@ -65,7 +63,7 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
     }
 
     private static void GetConstraintsAndSerializedPayloads(
-        EventPayload[] payloads,
+        List<EventPayload> payloads,
         out List<SerializedEventPayload> serializedPayloads,
         out List<UniqueEventConstraint> constraintsToAdd,
         out List<UniqueEventConstraint> constraintsToRemove
@@ -94,9 +92,9 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
                 constraintsToAdd.Select(x => Convert.ToHexString(x.ConstraintHash)),
                 StringComparer.Ordinal
             )
-            .ToArray();
+            .ToList();
 
-        if (duplicateHashes.Length > 0)
+        if (duplicateHashes.Count > 0)
             throw new InvalidOperationException(
                 "A unique constraint cannot be added and removed in the same write."
             );

@@ -6,5 +6,5 @@ public interface IOutbox
 {
     Task UpdateCompleted(long id);
     Task UpdateFailed(long id);
-    Task Write(params EventPayload[] payloads);
+    Task Write(List<EventPayload> payloads);
 }

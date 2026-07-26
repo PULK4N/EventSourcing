@@ -81,7 +81,7 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
         return await sqlEventStore.GetEvents(predicate);
     }
 
-    public async Task Write(params EventPayload[] payloads)
+    public async Task Write(List<EventPayload> payloads)
     {
         await sqlEventStore.Write(payloads);
 

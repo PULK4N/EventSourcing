@@ -1,7 +1,5 @@
 using EventSourcing.Persistence.Interfaces;
-using EventSourcing.Persistence.Models;
 using EventSourcing.Shared.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace EventSourcing.Persistence;
 
@@ -11,7 +9,7 @@ public class EventStoreWithOutbox(
     IOutbox _outbox
 ) : IEventStoreWithOutbox
 {
-    public async Task Write(params EventPayload[] payloads)
+    public async Task Write(List<EventPayload> payloads)
     {
         using var transaction = await applicationDbContext.Database.BeginTransactionAsync();
         await _eventStore.Write(payloads);

@@ -4,6 +4,6 @@ namespace Shared.Interfaces
 {
     public interface IEventValidator
     {
-        Task<EventValidationResult> Validate(object stateData);
+        EventValidationResult Validate(object stateData, EventPayload payload);
     }
 }

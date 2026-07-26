@@ -40,7 +40,7 @@ public class Outbox : IOutbox
         await _applicationDbContext.SaveChangesAsync();
     }
 
-    public async Task Write(params EventPayload[] payloads)
+    public async Task Write(List<EventPayload> payloads)
     {
         var aggregateIds = payloads.Select(x => x.EventExecutionInfo.AggregateId);
 

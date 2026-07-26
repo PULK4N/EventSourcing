@@ -49,13 +49,10 @@ public class StateMachineHandlerUniqueConstraintTests
         _eventStore
             .Setup(store => store.GetEvents(It.IsAny<AggregateId[]>()))
             .ReturnsAsync(
-                new Dictionary<AggregateId, EventPayload[]>
-                {
-                    [aggregateId] = [ existingEvent ]
-                }
+                new Dictionary<AggregateId, EventPayload[]> { [aggregateId] =  [ existingEvent ] }
             );
         _eventStoreWithOutbox
-            .Setup(store => store.Write(It.IsAny<EventPayload[]>()))
+            .Setup(store => store.Write(It.IsAny<List<EventPayload>>()))
             .Returns(Task.CompletedTask);
 
         # region Assert constraints to remove uses old state data and assert constraints to add uses new state data
@@ -82,7 +79,7 @@ public class StateMachineHandlerUniqueConstraintTests
                 }
             );
 
-        await _handler.ExecuteEvents(newEvent);
+        await _handler.ExecuteEvents([ newEvent ]);
 
         Assert.Equal("old@example.com", emailUsedForRemoval);
         Assert.Equal("new@example.com", emailUsedForAddition);
@@ -108,8 +105,8 @@ public class StateMachineHandlerUniqueConstraintTests
         _eventStoreWithOutbox.Verify(
             store =>
                 store.Write(
-                    It.Is<EventPayload[]>(
-                        payloads => payloads.Length == 1 && ReferenceEquals(payloads[0], newEvent)
+                    It.Is<List<EventPayload>>(
+                        payloads => payloads.Count == 1 && ReferenceEquals(payloads[0], newEvent)
                     )
                 ),
             Times.Once

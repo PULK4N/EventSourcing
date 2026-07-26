@@ -10,6 +10,8 @@ public sealed class StateMachineDefinition
 
 public sealed class StateMachineEventDefinition
 {
+    public List<string> PreEventValidators { get; set; } = [ ];
+    public List<string> PostEventValidators { get; set; } = [ ];
     public List<string> UniqueConstraints { get; set; } = [ ];
     public List<string> Projections { get; set; } = [ ];
 }

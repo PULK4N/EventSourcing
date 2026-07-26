@@ -17,5 +17,6 @@ public sealed class StaticTypeContainerFixture
         services.RegisterStateDataTypes(testAssembly);
         services.RegisterEventTypes(testAssembly);
         services.RegisterUniqueEventConstraintCreators(testAssembly);
+        services.RegisterEventValidators(testAssembly);
     }
 }

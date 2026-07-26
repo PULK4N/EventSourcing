@@ -3,6 +3,7 @@ using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
+using Shared.Interfaces;
 
 namespace EventSourcing.Core.Tests;
 
@@ -25,6 +26,10 @@ public class YamlStateMachineDefinitionProviderTests
                   - user-audit
                 events:
                   YamlUserCreated:
+                    preEventValidators:
+                      - YamlPreEventValidator
+                    postEventValidators:
+                      - YamlPostEventValidator
                     uniqueConstraints:
                       - UniqueEmailConstraint
                       - UniqueUsernameConstraint
@@ -39,6 +44,8 @@ public class YamlStateMachineDefinitionProviderTests
             Assert.Equal("YamlUserStateData", definition.StateData);
             Assert.Equal([ "user-audit" ], definition.Projections);
             var userCreated = definition.Events["YamlUserCreated"];
+            Assert.Equal([ "YamlPreEventValidator" ], userCreated.PreEventValidators);
+            Assert.Equal([ "YamlPostEventValidator" ], userCreated.PostEventValidators);
             Assert.Equal(
                 [ "UniqueEmailConstraint", "UniqueUsernameConstraint" ],
                 userCreated.UniqueConstraints
@@ -166,6 +173,18 @@ public sealed class YamlUserStateData : ISharedStateData
 internal sealed class YamlUserCreated : IEvent
 {
     public object Apply(object stateData, EventExecutionInfo eventExecutionInfo) => stateData;
+}
+
+public sealed class YamlPreEventValidator : IPreEventValidator
+{
+    public EventValidationResult Validate(object stateData, EventPayload payload) =>
+        EventValidationResult.FromPayload(payload, nameof(YamlPreEventValidator), true, null);
+}
+
+public sealed class YamlPostEventValidator : IPostEventValidator
+{
+    public EventValidationResult Validate(object stateData, EventPayload payload) =>
+        EventValidationResult.FromPayload(payload, nameof(YamlPostEventValidator), true, null);
 }
 
 public sealed class UniqueEmailConstraint : IUniqueConstraintCreator<YamlUserStateData>

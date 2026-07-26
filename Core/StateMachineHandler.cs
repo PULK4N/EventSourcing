@@ -17,7 +17,7 @@ public class StateMachineHandler(
 )
 {
     public async Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
-        params EventPayload[] eventsToExecute
+        List<EventPayload> eventsToExecute
     )
     {
         var aggregateIds = eventsToExecute
@@ -30,21 +30,10 @@ public class StateMachineHandler(
 
         foreach (var aggregateId in aggregateIds)
         {
-            var aggregateEventsToExecute = eventsToExecute
-                .Where(x => x.EventExecutionInfo.AggregateId == aggregateId)
-                .ToList();
-            var existingEventsByAggregate = existingEvents[aggregateId]
-                .OrderBy(x => x.EventExecutionInfo.OrderNumber)
-                .ToList();
-            ValidateSingleStateMachine(
-                aggregateId,
-                aggregateEventsToExecute,
-                existingEventsByAggregate
-            );
-
-            var stateInfo = await GenerateStateInfo(
-                existingEventsByAggregate,
-                aggregateEventsToExecute
+            StateInfo stateInfo = await Calculate(
+                eventsToExecute,
+                existingEvents[aggregateId].ToList(),
+                aggregateId
             );
 
             stateInfoDictionary.Add(aggregateId, stateInfo);
@@ -55,45 +44,30 @@ public class StateMachineHandler(
         return stateInfoDictionary;
     }
 
-    private static void ValidateSingleStateMachine(
-        AggregateId aggregateId,
-        List<EventPayload> aggregateEventsToExecute,
-        List<EventPayload> existingEventsByAggregate
-    )
-    {
-        var stateMachineIds = aggregateEventsToExecute
-            .Concat(existingEventsByAggregate)
-            .Select(x => x.EventExecutionInfo.StateMachineId)
-            .ToHashSet();
-
-        if (stateMachineIds.Count > 1)
-            throw new InvalidOperationException(
-                $"Events for aggregate '{aggregateId}' belong to multiple state machines: "
-                    + string.Join(", ", stateMachineIds)
-            );
-    }
-
-    // TODO: think how to implement impersonate
-    // Idea: Store impersonate data in some cache in a separate module
-    // Core modules -> ImpersonateModule
-    // Executor Module -> ImpersonateModule
-    // Executing action handles if Impersonating is On for a user
-    // Stores it in ImpersonateModule
-    // But since we have the same executor, how do we know that he executed it?
-    // We can since it's from the SAME SCOPE, and impersonating instance is registered as SCOPED.
-    public async Task<StateInfo> GenerateStateInfo(
+    private async Task<StateInfo> Calculate(
+        List<EventPayload> eventsToExecute,
         List<EventPayload> existingEvents,
-        List<EventPayload> aggregateEventsToExecute
+        AggregateId aggregateId
     )
     {
-        _orderNumberHelper.AssignOrderNumbers(existingEvents, aggregateEventsToExecute);
+        eventsToExecute = eventsToExecute
+            .Where(x => x.EventExecutionInfo.AggregateId == aggregateId)
+            .ToList();
+        existingEvents = existingEvents.OrderBy(x => x.EventExecutionInfo.OrderNumber).ToList();
+        StateMachineEventValidator.ValidateSingleStateMachineForAggregate(
+            aggregateId,
+            eventsToExecute,
+            existingEvents
+        );
+
+        _orderNumberHelper.AssignOrderNumbers(existingEvents, eventsToExecute);
 
         var allEvents = existingEvents
-            .Concat(aggregateEventsToExecute)
+            .Concat(eventsToExecute)
             .OrderBy(x => x.EventExecutionInfo.OrderNumber)
             .ToList();
-
-        return await Calculate(allEvents, aggregateEventsToExecute);
+        var stateInfo = await Calculate(allEvents, eventsToExecute);
+        return stateInfo;
     }
 
     public async Task<StateInfo> Calculate(
@@ -115,7 +89,8 @@ public class StateMachineHandler(
 
         foreach (var payload in eventPayloads)
         {
-            stateData = await Calculate(stateData, stateInfo, payload, newPayloadsSet);
+            var isNewEvent = newPayloadsSet.Contains(payload);
+            stateData = await Calculate(stateData, stateInfo, payload, isNewEvent);
         }
 
         return stateInfo;
@@ -125,15 +100,15 @@ public class StateMachineHandler(
         object stateData,
         StateInfo stateInfo,
         EventPayload payload,
-        HashSet<EventPayload> newPayloads
+        bool isNewEvent
     )
     {
-        if (newPayloads.Contains(payload))
+        if (isNewEvent)
         {
             var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(
                 payload
             );
-            await Validate(stateData, prerequisiteValidators.Select(x => x as IEventValidator));
+            Validate(stateData, payload, prerequisiteValidators);
 
             stateData = ApplyEventAndSetConstraints(stateData, payload);
         }
@@ -146,13 +121,11 @@ public class StateMachineHandler(
         stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
         stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
 
-        if (newPayloads.Contains(payload))
-        {
-            var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(
-                payload
-            );
-            await Validate(stateData, postrequisiteValidators.Select(x => x as IEventValidator));
-        }
+        if (!isNewEvent)
+            return stateData;
+
+        var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(payload);
+        Validate(stateData, payload, postrequisiteValidators);
         return stateData;
     }
 
@@ -171,10 +144,15 @@ public class StateMachineHandler(
         return stateData;
     }
 
-    private async Task Validate(object stateData, IEnumerable<IEventValidator> validators)
+    private void Validate(
+        object stateData,
+        EventPayload payload,
+        IEnumerable<IEventValidator> validators
+    )
     {
-        var tasks = validators.Select(v => v.Validate(stateData)).ToArray();
-        var validationResults = await Task.WhenAll(tasks);
+        var validationResults = validators
+            .Select(validator => validator.Validate(stateData, payload))
+            .ToList();
 
         var failedValidations = validationResults.Where(x => x.Succeded == false).ToList();
 

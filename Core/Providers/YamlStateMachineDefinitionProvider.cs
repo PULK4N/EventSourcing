@@ -3,6 +3,7 @@ using EventSourcing.Core.Models;
 using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Exceptions;
 using Microsoft.Extensions.Configuration;
+using Shared.Interfaces;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -116,7 +117,6 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
 
         definition.Projections ??=  [ ];
         definition.Events ??=  [ ];
-        ValidateIds(definition.Projections, $"state machine '{definition.Id}' projections");
 
         foreach (var (eventName, eventDefinition) in definition.Events)
         {
@@ -131,13 +131,19 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
                 );
             EventTypeContainer.GetEventType(eventName);
 
+            eventDefinition.PreEventValidators ??=  [ ];
+            eventDefinition.PostEventValidators ??=  [ ];
             eventDefinition.UniqueConstraints ??=  [ ];
             eventDefinition.Projections ??=  [ ];
-            ValidateIds(
-                eventDefinition.UniqueConstraints,
-                $"event '{eventName}' unique constraints"
+
+            ValidateValidatorTypes<IPreEventValidator>(
+                eventDefinition.PreEventValidators,
+                eventName
             );
-            ValidateIds(eventDefinition.Projections, $"event '{eventName}' projections");
+            ValidateValidatorTypes<IPostEventValidator>(
+                eventDefinition.PostEventValidators,
+                eventName
+            );
 
             foreach (var constraintName in eventDefinition.UniqueConstraints)
             {
@@ -146,17 +152,21 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
         }
     }
 
-    private static void ValidateIds(IEnumerable<string> ids, string location)
+    private static void ValidateValidatorTypes<TValidator>(
+        IEnumerable<string> validatorNames,
+        string eventName
+    )
+        where TValidator : IEventValidator
     {
-        var encounteredIds = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var id in ids)
+        foreach (var validatorName in validatorNames)
         {
-            if (string.IsNullOrWhiteSpace(id))
-                throw new InvalidOperationException($"{location} contains an empty ID.");
+            var validator = EventValidatorContainer.GetEventValidator(validatorName);
 
-            if (!encounteredIds.Add(id))
-                throw new InvalidOperationException($"{location} contains duplicate ID '{id}'.");
+            if (validator is not TValidator)
+                throw new InvalidOperationException(
+                    $"Event validator '{validatorName}' configured for event '{eventName}' "
+                        + $"does not implement {typeof(TValidator).Name}."
+                );
         }
     }
 }

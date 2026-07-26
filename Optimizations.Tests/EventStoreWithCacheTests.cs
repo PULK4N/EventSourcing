@@ -1,5 +1,4 @@
 using System.Text.Json;
-using EventSourcing.Optimizations;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Models;
 using EventSourcing.Shared.Containers;
@@ -111,7 +110,7 @@ public class EventStoreWithCacheTests : IDisposable
         Assert.True(_cache.TryGetValue(GetCacheKey(aggregateId), out _));
 
         var newEvent = CreateEvent(aggregateId, 2);
-        await _eventStore.Write(newEvent);
+        await _eventStore.Write([ newEvent ]);
 
         Assert.False(_cache.TryGetValue(GetCacheKey(aggregateId), out _));
         Assert.Equal(2, await _dbContext.SerializedEventPayload.CountAsync());
@@ -125,7 +124,7 @@ public class EventStoreWithCacheTests : IDisposable
             .UniqueEventConstraintsToAdd
             .Add(new UniqueEventConstraintData("email", "user@example.com"));
 
-        await _eventStore.Write(payload);
+        await _eventStore.Write([ payload ]);
 
         var constraint = await _dbContext.UniqueEventConstraints.SingleAsync();
         Assert.Equal(32, constraint.ConstraintHash.Length);

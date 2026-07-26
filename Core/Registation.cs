@@ -5,6 +5,7 @@ using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Interfaces;
 
 namespace EventSourcing.Core
 {
@@ -20,12 +21,12 @@ namespace EventSourcing.Core
             services.RegisterStateDataTypes(applicationAssemblies);
             services.RegisterEventTypes(applicationAssemblies);
             services.RegisterUniqueEventConstraintCreators(applicationAssemblies);
+            services.RegisterEventValidators(applicationAssemblies);
             services.AddSingleton<
                 IStateMachineDefinitionProvider,
                 YamlStateMachineDefinitionProvider
             >();
-            // services.RegisterHookTypes();
-            services.AddScoped<IEventValidatorProvider, DefaultEventValidatorProvider>();
+            services.AddScoped<IEventValidatorProvider, EventValidatorProvider>();
             services.AddScoped<IStateDataProvider, StateMachineStateDataProvider>();
             services.AddScoped<
                 IUniqueEventConstraintProvider,
@@ -117,6 +118,27 @@ namespace EventSourcing.Core
             {
                 if (implementation is Type type)
                     ConstraintCreatorTypeContainer.AddUniqueEventConstraintCreator(type);
+            }
+
+            return services;
+        }
+
+        public static IServiceCollection RegisterEventValidators(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
+        )
+        {
+            var interfaceType = typeof(IEventValidator);
+
+            var allImplementations = applicationAssemblies
+                .SelectMany(assembly => assembly.GetTypes())
+                .Where(type => interfaceType.IsAssignableFrom(type))
+                .Where(type => !type.IsInterface)
+                .Where(type => !type.IsAbstract);
+
+            foreach (var implementation in allImplementations)
+            {
+                EventValidatorContainer.AddEventValidator(implementation);
             }
 
             return services;

@@ -4,7 +4,7 @@ namespace EventSourcing.Persistence.Interfaces;
 
 public interface IEventStoreWithOutbox
 {
-    Task Write(params EventPayload[] payloads);
+    Task Write(List<EventPayload> payloads);
 
     Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(params AggregateId[] AggregateId);
 }
