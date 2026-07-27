@@ -17,6 +17,10 @@ public class StateMachineHandler(
 )
 {
     public async Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
+        EventPayload eventToExecute
+    ) => await ExecuteEvents([ eventToExecute ]);
+
+    public async Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
         List<EventPayload> eventsToExecute
     )
     {
