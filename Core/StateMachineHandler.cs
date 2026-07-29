@@ -6,7 +6,6 @@ namespace EventSourcing.Core;
 
 public class StateMachineHandler(
     StateCalculator _stateCalculator,
-    IEventStore _eventStore,
     IEventStoreWithOutbox _eventStoreWithOutbox
 )
 {
@@ -22,7 +21,7 @@ public class StateMachineHandler(
             .Select(x => x.EventExecutionInfo.AggregateId)
             .Distinct()
             .ToList();
-        var existingEvents = await _eventStore.GetEvents(aggregateIds);
+        var existingEvents = await _eventStoreWithOutbox.GetEvents(aggregateIds);
 
         var stateInfoDictionary = new Dictionary<AggregateId, StateInfo>();
 
