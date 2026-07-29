@@ -41,7 +41,7 @@ public class EventStoreWithCacheTests : IDisposable
 
         var events = new List<EventPayload>() { firstEvent, secondEvent };
         var serializedEvents = JsonSerializer.Serialize(events, new JsonSerializerOptions());
-        var result = await _eventStore.GetEvents(aggregateId);
+        var result = await _eventStore.GetEvents([ aggregateId ]);
         var resultValues = result.SelectMany(x => x.Value).ToList();
         var serializedResultValues = JsonSerializer.Serialize(
             resultValues,
@@ -50,9 +50,9 @@ public class EventStoreWithCacheTests : IDisposable
         Assert.Equal(serializedEvents, serializedResultValues);
 
         Assert.True(
-            _cache.TryGetValue<EventPayload[]>(GetCacheKey(aggregateId), out var cachedEvents)
+            _cache.TryGetValue<List<EventPayload>>(GetCacheKey(aggregateId), out var cachedEvents)
         );
-        Assert.Equal(2, cachedEvents!.Length);
+        Assert.Equal(2, cachedEvents!.Count);
     }
 
     [Fact]
@@ -61,21 +61,21 @@ public class EventStoreWithCacheTests : IDisposable
         var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         var firstEvent = CreateEvent(aggregateId, 1);
         await Seed(firstEvent);
-        await _eventStore.GetEvents(aggregateId);
+        await _eventStore.GetEvents([ aggregateId ]);
 
         var secondEvent = CreateEvent(aggregateId, 2);
         await Seed(secondEvent);
 
-        var result = await _eventStore.GetEvents(aggregateId);
+        var result = await _eventStore.GetEvents([ aggregateId ]);
 
         Assert.Equal(
             [ 1u, 2u ],
             result[aggregateId].Select(payload => payload.EventExecutionInfo.OrderNumber)
         );
         Assert.True(
-            _cache.TryGetValue<EventPayload[]>(GetCacheKey(aggregateId), out var cachedEvents)
+            _cache.TryGetValue<List<EventPayload>>(GetCacheKey(aggregateId), out var cachedEvents)
         );
-        Assert.Equal(2, cachedEvents!.Length);
+        Assert.Equal(2, cachedEvents!.Count);
     }
 
     [Fact]
@@ -86,9 +86,7 @@ public class EventStoreWithCacheTests : IDisposable
         await Seed(CreateEvent(firstAggregateId, 1), CreateEvent(secondAggregateId, 1));
 
         var result = await _eventStore.GetEvents(
-            firstAggregateId,
-            secondAggregateId,
-            firstAggregateId
+            [ firstAggregateId, secondAggregateId, firstAggregateId ]
         );
 
         Assert.Equal(2, result.Count);
@@ -102,18 +100,28 @@ public class EventStoreWithCacheTests : IDisposable
     }
 
     [Fact]
-    public async Task Write_PersistsEventsAndInvalidatesAffectedCacheEntries()
+    public async Task Write_PersistsEventsAndRefreshesCacheOnNextRead()
     {
         var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         await Seed(CreateEvent(aggregateId, 1));
-        await _eventStore.GetEvents(aggregateId);
+        await _eventStore.GetEvents([ aggregateId ]);
         Assert.True(_cache.TryGetValue(GetCacheKey(aggregateId), out _));
 
         var newEvent = CreateEvent(aggregateId, 2);
         await _eventStore.Write([ newEvent ]);
 
-        Assert.False(_cache.TryGetValue(GetCacheKey(aggregateId), out _));
         Assert.Equal(2, await _dbContext.SerializedEventPayload.CountAsync());
+
+        var result = await _eventStore.GetEvents([ aggregateId ]);
+
+        Assert.Equal(
+            [ 1u, 2u ],
+            result[aggregateId].Select(payload => payload.EventExecutionInfo.OrderNumber)
+        );
+        Assert.True(
+            _cache.TryGetValue<List<EventPayload>>(GetCacheKey(aggregateId), out var cachedEvents)
+        );
+        Assert.Equal(2, cachedEvents!.Count);
     }
 
     [Fact]
@@ -135,15 +143,15 @@ public class EventStoreWithCacheTests : IDisposable
     }
 
     [Fact]
-    public async Task GetEvents_ReturnsEmptyArrayForAggregateWithoutEvents()
+    public async Task GetEvents_ReturnsEmptyListForAggregateWithoutEvents()
     {
         var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
 
-        var result = await _eventStore.GetEvents(aggregateId);
+        var result = await _eventStore.GetEvents([ aggregateId ]);
 
         Assert.Empty(result[aggregateId]);
         Assert.True(
-            _cache.TryGetValue<EventPayload[]>(GetCacheKey(aggregateId), out var cachedEvents)
+            _cache.TryGetValue<List<EventPayload>>(GetCacheKey(aggregateId), out var cachedEvents)
         );
         Assert.Empty(cachedEvents!);
     }

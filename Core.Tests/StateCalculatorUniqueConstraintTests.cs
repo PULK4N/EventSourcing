@@ -1,6 +1,5 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
-using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Moq;
@@ -8,17 +7,15 @@ using Shared.Interfaces;
 
 namespace EventSourcing.Core.Tests;
 
-public class StateMachineHandlerUniqueConstraintTests
+public class StateCalculatorUniqueConstraintTests
 {
-    private readonly Mock<IEventStoreWithOutbox> _eventStoreWithOutbox = new(MockBehavior.Strict);
-    private readonly Mock<IEventStore> _eventStore = new(MockBehavior.Strict);
     private readonly Mock<IUniqueEventConstraintProvider> _constraintProvider =
         new(MockBehavior.Strict);
     private readonly Mock<IEventValidatorProvider> _validatorProvider = new(MockBehavior.Strict);
     private readonly Mock<IStateDataProvider> _stateDataProvider = new(MockBehavior.Strict);
-    private readonly StateMachineHandler _handler;
+    private readonly StateCalculator _stateCalculator;
 
-    public StateMachineHandlerUniqueConstraintTests()
+    public StateCalculatorUniqueConstraintTests()
     {
         _validatorProvider
             .Setup(provider => provider.GetPreEventStateValidators(It.IsAny<EventPayload>()))
@@ -30,30 +27,20 @@ public class StateMachineHandlerUniqueConstraintTests
             .Setup(provider => provider.GetStateDataByStateMachine(It.IsAny<string>()))
             .ReturnsAsync(() => new TestStateData());
 
-        _handler = new StateMachineHandler(
-            _eventStore.Object,
-            _eventStoreWithOutbox.Object,
-            _validatorProvider.Object,
-            _constraintProvider.Object,
+        _stateCalculator = new StateCalculator(
+            new OrderNumberHelper(),
             _stateDataProvider.Object,
-            new OrderNumberHelper()
+            _validatorProvider.Object,
+            _constraintProvider.Object
         );
     }
 
     [Fact]
-    public async Task ExecuteEvents_UsesStateBeforeAndAfterEventForConstraints()
+    public async Task Calculate_UsesStateBeforeAndAfterEventForConstraints()
     {
         var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         var existingEvent = CreateEvent(aggregateId, "old@example.com", 1);
         var newEvent = CreateEvent(aggregateId, "new@example.com");
-        _eventStore
-            .Setup(store => store.GetEvents(It.IsAny<AggregateId[]>()))
-            .ReturnsAsync(
-                new Dictionary<AggregateId, EventPayload[]> { [aggregateId] =  [ existingEvent ] }
-            );
-        _eventStoreWithOutbox
-            .Setup(store => store.Write(It.IsAny<List<EventPayload>>()))
-            .Returns(Task.CompletedTask);
 
         # region Assert constraints to remove uses old state data and assert constraints to add uses new state data
         string? emailUsedForRemoval = null;
@@ -79,7 +66,7 @@ public class StateMachineHandlerUniqueConstraintTests
                 }
             );
 
-        await _handler.ExecuteEvents([ newEvent ]);
+        await _stateCalculator.Calculate([ existingEvent ], [ newEvent ]);
 
         Assert.Equal("old@example.com", emailUsedForRemoval);
         Assert.Equal("new@example.com", emailUsedForAddition);
@@ -93,7 +80,9 @@ public class StateMachineHandlerUniqueConstraintTests
             "new@example.com",
             Assert.Single(newEvent.UniqueEventConstraintsToAdd).ValueToHash
         );
+        // Assert that orderNumber was set properly
         Assert.Equal(2u, newEvent.EventExecutionInfo.OrderNumber);
+        // assert that the constraint provider was called once, because we have a single new event
         _constraintProvider.Verify(
             provider => provider.GetConstraintsToRemove(It.IsAny<object>(), newEvent),
             Times.Once
@@ -102,31 +91,9 @@ public class StateMachineHandlerUniqueConstraintTests
             provider => provider.GetConstraintsToAdd(It.IsAny<object>(), newEvent),
             Times.Once
         );
-        _eventStoreWithOutbox.Verify(
-            store =>
-                store.Write(
-                    It.Is<List<EventPayload>>(
-                        payloads => payloads.Count == 1 && ReferenceEquals(payloads[0], newEvent)
-                    )
-                ),
-            Times.Once
-        );
-    }
-
-    [Fact]
-    public async Task Calculate_DoesNotCreateConstraintsForHistoricalEvents()
-    {
-        var historicalEvent = CreateEvent(
-            AggregateId.FromDatabaseGuid(Guid.NewGuid()),
-            "historical@example.com",
-            1
-        );
-
-        await _handler.Calculate([ historicalEvent ], [ ]);
-
-        _constraintProvider.VerifyNoOtherCalls();
-        Assert.Empty(historicalEvent.UniqueEventConstraintsToRemove);
-        Assert.Empty(historicalEvent.UniqueEventConstraintsToAdd);
+        // Assert that the existing event doesn't have any constraints to remove or add, since it was already processed
+        Assert.Empty(existingEvent.UniqueEventConstraintsToRemove);
+        Assert.Empty(existingEvent.UniqueEventConstraintsToAdd);
     }
 
     private static EventPayload CreateEvent(
