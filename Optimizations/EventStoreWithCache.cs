@@ -39,7 +39,7 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
             if (!payloadsByAggregate.TryGetValue(aggregateId, out payloads!))
                 payloadsByAggregate[aggregateId] = payloads =  [ ];
 
-            cache.Set(GetCacheKey(aggregateId), payloads);
+            cache.Set(GetCacheKey(aggregateId), payloads, TimeSpan.FromDays(1));
         }
 
         return payloadsByAggregate;
@@ -81,16 +81,7 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
         return await sqlEventStore.GetEvents(predicate);
     }
 
-    public async Task Write(List<EventPayload> payloads)
-    {
-        await sqlEventStore.Write(payloads);
-
-        // Force the next read to rebuild each affected aggregate from committed data.
-        foreach (
-            var aggregateId in payloads.Select(x => x.EventExecutionInfo.AggregateId).Distinct()
-        )
-            cache.Remove(GetCacheKey(aggregateId));
-    }
+    public async Task Write(List<EventPayload> payloads) => await sqlEventStore.Write(payloads);
 
     private static string GetCacheKey(AggregateId aggregateId) => CacheKeyPrefix + aggregateId;
 }
