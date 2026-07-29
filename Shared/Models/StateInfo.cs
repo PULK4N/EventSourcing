@@ -10,6 +10,7 @@ namespace EventSourcing.Shared.Models
         public uint CurrentOrderNumber { get; set; }
         public DateTime LastUpdateTimestamp { get; set; }
         public string StateMachineId { get; set; } = string.Empty;
+        public List<EventPayload> LastExecutedPayloads { get; set; } = new List<EventPayload>();
 
         // State might not yet need to be implemented
         public string State { get; set; } = "NULL_STATE";

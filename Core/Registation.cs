@@ -1,6 +1,7 @@
 using System.Reflection;
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
+using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
@@ -18,6 +19,7 @@ namespace EventSourcing.Core
         {
             services.AddScoped<OrderNumberHelper>();
             services.AddScoped<StateMachineHandler>();
+            services.AddScoped<StateCalculator>();
             services.RegisterStateDataTypes(applicationAssemblies);
             services.RegisterEventTypes(applicationAssemblies);
             services.RegisterUniqueEventConstraintCreators(applicationAssemblies);
@@ -32,6 +34,8 @@ namespace EventSourcing.Core
                 IUniqueEventConstraintProvider,
                 StateMachineUniqueEventConstraintProvider
             >();
+
+            services.AddScoped<IOutbox, ProjectionOutbox>();
 
             return services;
         }

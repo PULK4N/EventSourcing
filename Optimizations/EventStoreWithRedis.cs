@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Persistence.Models;
+using EventSourcing.Shared.Helpers;
 using EventSourcing.Shared.Models;
 using LinqKit;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ namespace EventSourcing.Optimizations
     {
         protected readonly IDatabase _database;
         protected readonly BaseSqlEventStore _sqlEventStore;
+        protected TimeSpan ExpiryTime => TimeSpan.FromDays(1);
 
         public EventStoreWithRedis(BaseSqlEventStore sqlEventStore, IConfiguration configuration)
         {
@@ -28,54 +30,59 @@ namespace EventSourcing.Optimizations
             _database = redis.GetDatabase();
         }
 
-        public async Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(
-            params AggregateId[] aggregateIds
+        public async Task<Dictionary<AggregateId, List<EventPayload>>> GetEvents(
+            List<AggregateId> aggregateIds
         )
         {
             var payloadsFromCache = await GetPayloadsFromCache(aggregateIds);
 
-            var aggregateIdGuids = aggregateIds.Select(x => x.Value).ToArray();
-            var missingPayloads = await GetMissingPayloads(payloadsFromCache, aggregateIdGuids);
+            var missingPayloads = await GetMissingPayloads(payloadsFromCache, aggregateIds);
 
-            var payloads = missingPayloads.Concat(payloadsFromCache);
+            var payloads = missingPayloads.Concat(payloadsFromCache).ToList();
 
-            var eventsDictionary = new Dictionary<AggregateId, EventPayload[]>();
+            var payloadsByAggregate = payloads.GetPayloadsByAggregateDictionary();
 
             foreach (var aggregateId in aggregateIds)
             {
-                var aggregateEvents = payloads
-                    .Where(x => x.EventExecutionInfo.AggregateId == aggregateId)
-                    .ToArray();
-                eventsDictionary.Add(aggregateId, aggregateEvents);
+                if (!payloadsByAggregate.TryGetValue(aggregateId, out payloads))
+                    payloadsByAggregate[aggregateId] = payloads =  [ ];
+                else
+                {
+                    var serializedPayloads = payloads.Select(SerializedEventPayload.FromPayload).ToList();
+                    var payloadsSerialized = JsonConvert.SerializeObject(serializedPayloads);
+                    await _database.StringSetAsync(
+                        GetRedisKey(aggregateId),
+                        new RedisValue(payloadsSerialized),
+                        ExpiryTime
+                    );
+                }
             }
 
-            return eventsDictionary;
+            return payloadsByAggregate;
         }
 
         protected virtual async Task<IEnumerable<EventPayload>> GetPayloadsFromCache(
-            params AggregateId[] aggregateIds
+            List<AggregateId> aggregateIds
         )
         {
-            var redisKeys = aggregateIds
-                .Select(x => new RedisKey("redisEventStore:" + x.ToString()))
-                .ToArray();
+            var redisKeys = aggregateIds.Select(x => GetRedisKey(x)).ToArray();
 
             var cachedResults = await _database.StringGetAsync(redisKeys);
 
-            var cachedResultsDeserialized = cachedResults
+            var payloads = cachedResults
                 .Where(x => x.HasValue)
-                .Select(x => JsonConvert.DeserializeObject<SerializedEventPayload>(x.ToString()));
-
-            var payloads = cachedResultsDeserialized.Select(x => x!.Deserialize());
+                .SelectMany(x => JsonConvert.DeserializeObject<List<SerializedEventPayload>>(x.ToString())!)
+                .Select(x => x.Deserialize());
 
             return payloads;
         }
 
         protected virtual async Task<IEnumerable<EventPayload>> GetMissingPayloads(
             IEnumerable<EventPayload> cachedPayloads,
-            params Guid[] aggregateIds
+            List<AggregateId> aggregateIds
         )
         {
+            var aggregateIdGuids = aggregateIds.Select(x => x.Value);
             var aggregateIdsWithOrderNumber = cachedPayloads
                 .GroupBy(x => x.EventExecutionInfo.AggregateId)
                 .Select(gr => gr.OrderByDescending(x => x.EventExecutionInfo.OrderNumber).First())
@@ -88,7 +95,7 @@ namespace EventSourcing.Optimizations
                 )
                 .ToList();
 
-            AddMissingAggregateIds(aggregateIdsWithOrderNumber, aggregateIds);
+            AddMissingAggregateIds(aggregateIdsWithOrderNumber, aggregateIdGuids);
 
             var predicate = PredicateBuilder.New<SerializedEventPayload>(false);
 
@@ -121,5 +128,8 @@ namespace EventSourcing.Optimizations
         }
 
         public Task Write(List<EventPayload> payloads) => _sqlEventStore.Write(payloads);
+
+        public RedisKey GetRedisKey(AggregateId aggregateId) =>
+            new RedisKey("EventPayloadsByAggregateId:" + aggregateId.Value.ToString());
     }
 }

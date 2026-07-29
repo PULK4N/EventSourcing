@@ -5,9 +5,9 @@ namespace EventSourcing.Persistence;
 
 public class EventStore(BaseSqlEventStore baseSqlEventStore) : IEventStore
 {
-    public virtual Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(
-        params AggregateId[] AggregateIds
-    ) => baseSqlEventStore.GetEvents(AggregateIds);
+    public virtual Task<Dictionary<AggregateId, List<EventPayload>>> GetEvents(
+        List<AggregateId> aggregateIds
+    ) => baseSqlEventStore.GetEvents(aggregateIds);
 
     public async Task Write(List<EventPayload> payloads)
     {

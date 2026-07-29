@@ -4,6 +4,6 @@ namespace EventSourcing.Persistence.Interfaces;
 
 public interface IEventStore
 {
-    Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(params AggregateId[] AggregateId);
+    Task<Dictionary<AggregateId, List<EventPayload>>> GetEvents(List<AggregateId> AggregateIds);
     Task Write(List<EventPayload> payloads);
 }

@@ -4,5 +4,5 @@ namespace EventSourcing.Shared.Interfaces;
 
 public interface IProjector
 {
-    Task Update(params StateInfo[] stateInfo);
+    Task Update(List<StateInfo> stateInfo);
 }

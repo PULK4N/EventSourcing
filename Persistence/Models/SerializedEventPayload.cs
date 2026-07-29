@@ -58,7 +58,7 @@ namespace EventSourcing.Persistence.Models
             var eventType = EventTypeContainer.GetEventType(EventName);
 
             var eventData = (IEvent)
-                JsonConvert.DeserializeObject(this.SerializedJsonData, eventType);
+                JsonConvert.DeserializeObject(this.SerializedJsonData, eventType)!;
 
             payload.EventData = eventData;
 

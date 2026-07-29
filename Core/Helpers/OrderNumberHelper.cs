@@ -5,15 +5,15 @@ namespace EventSourcing.Core.Providers
     public class OrderNumberHelper
     {
         public void AssignOrderNumbers(
-            IEnumerable<EventPayload> existingEvents,
-            IEnumerable<EventPayload> aggregateEventsToExecute
+            List<EventPayload> existingEvents,
+            List<EventPayload> newEvents
         )
         {
             uint currentLastOrderNumber = 0;
             if (existingEvents.Any())
                 currentLastOrderNumber = existingEvents.Max(x => x.EventExecutionInfo.OrderNumber);
 
-            foreach (var payload in aggregateEventsToExecute)
+            foreach (var payload in newEvents)
             {
                 payload.EventExecutionInfo.OrderNumber = ++currentLastOrderNumber;
             }

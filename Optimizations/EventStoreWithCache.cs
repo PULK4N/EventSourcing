@@ -1,6 +1,7 @@
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Persistence.Models;
+using EventSourcing.Shared.Helpers;
 using EventSourcing.Shared.Models;
 using LinqKit;
 using Microsoft.Extensions.Caching.Memory;
@@ -11,32 +12,24 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
 {
     private const string CacheKeyPrefix = "inMemoryEventStore:";
 
-    public async Task<Dictionary<AggregateId, EventPayload[]>> GetEvents(
-        params AggregateId[] aggregateIds
+    public async Task<Dictionary<AggregateId, List<EventPayload>>> GetEvents(
+        List<AggregateId> aggregateIds
     )
     {
-        var distinctAggregateIds = aggregateIds.Distinct().ToArray();
-        var cachedPayloads = GetPayloadsFromCache(distinctAggregateIds).ToArray();
-        var distinctAggregateGuids = distinctAggregateIds.Select(x => x.Value).ToArray();
+        var distinctAggregateIds = aggregateIds.Distinct().ToList();
+        var cachedPayloads = GetPayloadsFromCache(distinctAggregateIds).ToList();
+        var distinctAggregateGuids = distinctAggregateIds.Select(x => x.Value).ToList();
         var missingPayloads = await GetMissingPayloads(cachedPayloads, distinctAggregateGuids);
 
         var payloadsByAggregate = cachedPayloads
             .Concat(missingPayloads)
-            .DistinctBy(x => (x.EventExecutionInfo.AggregateId, x.EventExecutionInfo.OrderNumber))
-            .GroupBy(payload => payload.EventExecutionInfo.AggregateId)
-            .ToDictionary(
-                group => group.First().EventExecutionInfo.AggregateId,
-                group =>
-                    group
-                        .ToArray()
-                        .OrderBy(payload => payload.EventExecutionInfo.OrderNumber)
-                        .ToArray()
-            );
+            .ToList()
+            .GetPayloadsByAggregateDictionary();
 
-        EventPayload[] payloads;
+        var payloads = new List<EventPayload>();
         foreach (var aggregateId in distinctAggregateIds)
         {
-            if (!payloadsByAggregate.TryGetValue(aggregateId, out payloads!))
+            if (!payloadsByAggregate.TryGetValue(aggregateId, out payloads))
                 payloadsByAggregate[aggregateId] = payloads =  [ ];
 
             cache.Set(GetCacheKey(aggregateId), payloads, TimeSpan.FromDays(1));
@@ -45,19 +38,19 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
         return payloadsByAggregate;
     }
 
-    protected virtual IEnumerable<EventPayload> GetPayloadsFromCache(
-        params AggregateId[] aggregateIds
-    ) =>
-        aggregateIds.SelectMany(
-            aggregateId =>
-                cache.TryGetValue(GetCacheKey(aggregateId), out EventPayload[]? payloads)
-                    ? payloads ?? [ ]
-                    : [ ]
-        );
+    protected virtual List<EventPayload> GetPayloadsFromCache(List<AggregateId> aggregateIds) =>
+        aggregateIds
+            .SelectMany(
+                aggregateId =>
+                    cache.TryGetValue(GetCacheKey(aggregateId), out List<EventPayload>? payloads)
+                        ? payloads ?? [ ]
+                        : [ ]
+            )
+            .ToList();
 
     protected virtual async Task<IEnumerable<EventPayload>> GetMissingPayloads(
-        IEnumerable<EventPayload> cachedPayloads,
-        params Guid[] aggregateIds
+        List<EventPayload> cachedPayloads,
+        List<Guid> aggregateIds
     )
     {
         var latestOrderNumbers = cachedPayloads
