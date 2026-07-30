@@ -19,8 +19,8 @@ public class StateCalculator(
         List<EventPayload> newPayloads
     )
     {
-        var firstPayload = newPayloads.First();
         var allPayloads = existingPayloads.Concat(newPayloads).ToList();
+        var firstPayload = allPayloads.First();
 
         if (
             !allPayloads.All(
