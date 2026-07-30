@@ -19,7 +19,13 @@ public class StateCalculator(
         List<EventPayload> newPayloads
     )
     {
-        var allPayloads = existingPayloads.Concat(newPayloads).ToList();
+        existingPayloads = existingPayloads
+            .OrderBy(x => x.EventExecutionInfo.OrderNumber)
+            .ToList();
+            
+        var allPayloads = existingPayloads
+            .Concat(newPayloads)
+            .ToList();
         var firstPayload = allPayloads.First();
 
         if (
