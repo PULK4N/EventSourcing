@@ -1,4 +1,3 @@
-using System.Text.Json;
 using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Models;
 using Shared.Interfaces;
