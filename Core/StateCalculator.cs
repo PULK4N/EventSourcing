@@ -1,9 +1,7 @@
 using System.Text.Json;
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
-using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Models;
-using Shared.Interfaces;
 
 namespace EventSourcing.Core;
 
@@ -19,13 +17,12 @@ public class StateCalculator(
         List<EventPayload> newPayloads
     )
     {
-        existingPayloads = existingPayloads
-            .OrderBy(x => x.EventExecutionInfo.OrderNumber)
-            .ToList();
-            
-        var allPayloads = existingPayloads
-            .Concat(newPayloads)
-            .ToList();
+        StateValidator.ValidateOldEventsContainOrderNumbers(existingPayloads);
+        StateValidator.ValidateNewEventsOrderNumbers(newPayloads);
+
+        existingPayloads = existingPayloads.OrderBy(x => x.EventExecutionInfo.OrderNumber).ToList();
+
+        var allPayloads = existingPayloads.Concat(newPayloads).ToList();
         var firstPayload = allPayloads.First();
 
         if (
@@ -80,7 +77,7 @@ public class StateCalculator(
             var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(
                 payload
             );
-            Validate(stateData, payload, prerequisiteValidators);
+            StateValidator.ValidateEvent(stateData, payload, prerequisiteValidators);
 
             stateData = ApplyEventAndSetConstraints(stateData, payload);
         }
@@ -97,7 +94,7 @@ public class StateCalculator(
             return stateData;
 
         var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(payload);
-        Validate(stateData, payload, postrequisiteValidators);
+        StateValidator.ValidateEvent(stateData, payload, postrequisiteValidators);
         return stateData;
     }
 
@@ -114,23 +111,5 @@ public class StateCalculator(
             .UniqueEventConstraintsToAdd
             .AddRange(_uniqueEventConstraintProvider.GetConstraintsToAdd(stateData, payload));
         return stateData;
-    }
-
-    private void Validate(
-        object stateData,
-        EventPayload payload,
-        IEnumerable<IEventValidator> validators
-    )
-    {
-        var validationResults = validators
-            .Select(validator => validator.Validate(stateData, payload))
-            .ToList();
-
-        var failedValidations = validationResults.Where(x => x.Succeded == false).ToList();
-
-        if (!failedValidations.Any())
-            return;
-
-        throw new EventValidationException(failedValidations);
     }
 }
