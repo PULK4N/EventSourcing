@@ -54,6 +54,8 @@ public class StateCalculator(
                 payload,
                 isNewEvent
             );
+            stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
+            stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
         }
         stateInfo.LastExecutedPayloads = newPayloads;
 
