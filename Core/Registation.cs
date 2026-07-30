@@ -40,24 +40,6 @@ namespace EventSourcing.Core
             return services;
         }
 
-        public static IServiceCollection RegisterDevEnvironmentProviders(
-            this IServiceCollection services
-        )
-        {
-            services.AddScoped<IStateDataProvider, AppSettingsConfigurationStateDataProvider>();
-
-            return services;
-        }
-
-        public static IServiceCollection RegisterProdEnvironmentProviders(
-            this IServiceCollection services
-        )
-        {
-            services.AddScoped<IStateDataProvider, StateDataProvider>();
-
-            return services;
-        }
-
         public static IServiceCollection RegisterStateDataTypes(
             this IServiceCollection services,
             params Assembly[] applicationAssemblies
