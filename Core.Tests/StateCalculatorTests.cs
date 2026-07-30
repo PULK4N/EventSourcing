@@ -1,6 +1,7 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
 using EventSourcing.Core.Tests.TestModels;
+using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Models;
 using Moq;
 
@@ -88,6 +89,8 @@ public sealed class StateCalculatorTests
             StateMachineId,
             new TransferMoney { MoneySent = 10 }
         );
+        existingPayload.EventExecutionInfo.OrderNumber = 1;
+
         var newPayload = EventPayload.Create(
             EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
             AggregateId.FromDatabaseGuid(Guid.NewGuid()),
@@ -95,7 +98,7 @@ public sealed class StateCalculatorTests
             new TransferMoney { MoneySent = 20 }
         );
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EventValidationException>(
             () => _stateCalculator.Calculate([ existingPayload ], [ newPayload ])
         );
     }
@@ -110,6 +113,8 @@ public sealed class StateCalculatorTests
             StateMachineId,
             new TransferMoney { MoneySent = 10 }
         );
+        existingPayload.EventExecutionInfo.OrderNumber = 1;
+
         var newPayload = EventPayload.Create(
             EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
             aggregateId,
@@ -117,7 +122,7 @@ public sealed class StateCalculatorTests
             new TransferMoney { MoneySent = 20 }
         );
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EventValidationException>(
             () => _stateCalculator.Calculate([ existingPayload ], [ newPayload ])
         );
     }

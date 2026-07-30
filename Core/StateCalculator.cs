@@ -1,4 +1,3 @@
-using System.Text.Json;
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
 using EventSourcing.Shared.Models;
@@ -25,18 +24,54 @@ public class StateCalculator(
         var allPayloads = existingPayloads.Concat(newPayloads).ToList();
         var firstPayload = allPayloads.First();
 
-        if (
-            !allPayloads.All(
-                x =>
-                    x.EventExecutionInfo.AggregateId == firstPayload.EventExecutionInfo.AggregateId
-                    && x.EventExecutionInfo.StateMachineId
-                        == firstPayload.EventExecutionInfo.StateMachineId
-            )
-        )
-            throw new InvalidOperationException(
-                $"Provided events must contain same aggregate id and state machine id! SerializedPayloads {JsonSerializer.Serialize(allPayloads)}"
-            );
+        StateValidator.ValidateAllEventsHaveSameAggregateIdAndStateMachineId(
+            allPayloads,
+            firstPayload
+        );
 
+        var stateInfo = await GetInitialStateInfo(firstPayload);
+
+        _orderNumberHelper.AssignOrderNumbers(existingPayloads, newPayloads);
+
+        foreach (var payload in existingPayloads)
+        {
+            Apply(stateInfo, payload);
+        }
+
+        foreach (var payload in newPayloads)
+        {
+            var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(
+                payload
+            );
+            StateValidator.ValidateEvent(stateInfo.StateData, payload, prerequisiteValidators);
+
+            payload.UniqueEventConstraintsToRemove.Clear();
+            payload
+                .UniqueEventConstraintsToRemove
+                .AddRange(
+                    _uniqueEventConstraintProvider.GetConstraintsToRemove(stateInfo.StateData, payload)
+                );
+
+            Apply(stateInfo, payload);
+
+            payload.UniqueEventConstraintsToAdd.Clear();
+            payload
+                .UniqueEventConstraintsToAdd
+                .AddRange(_uniqueEventConstraintProvider.GetConstraintsToAdd(stateInfo.StateData, payload));
+
+            var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(
+                payload
+            );
+            StateValidator.ValidateEvent(stateInfo.StateData, payload, postrequisiteValidators);
+        }
+
+        stateInfo.LastExecutedPayloads = newPayloads;
+
+        return stateInfo;
+    }
+
+    private async Task<StateInfo> GetInitialStateInfo(EventPayload firstPayload)
+    {
         var stateMachineId = firstPayload.EventExecutionInfo.StateMachineId;
         var stateData = await _stateDataProvider.GetStateDataByStateMachine(stateMachineId);
 
@@ -45,71 +80,16 @@ public class StateCalculator(
             stateMachineId,
             firstPayload.EventExecutionInfo.AggregateId
         );
-        var newPayloadsSet = new HashSet<EventPayload>(newPayloads);
-        _orderNumberHelper.AssignOrderNumbers(existingPayloads, newPayloads);
-
-        foreach (var payload in allPayloads)
-        {
-            var isNewEvent = newPayloadsSet.Contains(payload);
-            stateInfo.StateData = await Calculate(
-                stateInfo.StateData,
-                stateInfo,
-                payload,
-                isNewEvent
-            );
-            stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
-            stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
-        }
-        stateInfo.LastExecutedPayloads = newPayloads;
-
         return stateInfo;
     }
 
-    private async Task<object> Calculate(
-        object stateData,
-        StateInfo stateInfo,
-        EventPayload payload,
-        bool isNewEvent
-    )
+    private void Apply(StateInfo stateInfo, EventPayload payload)
     {
-        if (isNewEvent)
-        {
-            var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(
-                payload
-            );
-            StateValidator.ValidateEvent(stateData, payload, prerequisiteValidators);
+        stateInfo.StateData = payload
+            .EventData
+            .Apply(stateInfo.StateData, payload.EventExecutionInfo);
 
-            stateData = ApplyEventAndSetConstraints(stateData, payload);
-        }
-        else
-        {
-            stateData = payload.EventData.Apply(stateData, payload.EventExecutionInfo);
-        }
-
-        stateInfo.StateData = stateData;
         stateInfo.CurrentOrderNumber = payload.EventExecutionInfo.OrderNumber;
         stateInfo.LastUpdateTimestamp = payload.EventExecutionInfo.Timestamp;
-
-        if (!isNewEvent)
-            return stateData;
-
-        var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(payload);
-        StateValidator.ValidateEvent(stateData, payload, postrequisiteValidators);
-        return stateData;
-    }
-
-    private object ApplyEventAndSetConstraints(object stateData, EventPayload payload)
-    {
-        payload.UniqueEventConstraintsToRemove.Clear();
-        payload
-            .UniqueEventConstraintsToRemove
-            .AddRange(_uniqueEventConstraintProvider.GetConstraintsToRemove(stateData, payload));
-        stateData = payload.EventData.Apply(stateData, payload.EventExecutionInfo);
-
-        payload.UniqueEventConstraintsToAdd.Clear();
-        payload
-            .UniqueEventConstraintsToAdd
-            .AddRange(_uniqueEventConstraintProvider.GetConstraintsToAdd(stateData, payload));
-        return stateData;
     }
 }

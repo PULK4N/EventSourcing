@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Models;
 using Shared.Interfaces;
@@ -62,6 +63,43 @@ internal static class StateValidator
                                 nameof(ValidateNewEventsOrderNumbers),
                                 false,
                                 Constants.INVALID_ORDER_NUMBER_ON_NEW_EVENT
+                            )
+                    )
+                    .ToList()
+            );
+    }
+
+    internal static void ValidateAllEventsHaveSameAggregateIdAndStateMachineId(
+        List<EventPayload> allPayloads,
+        EventPayload firstPayload
+    )
+    {
+        var aggregateId = firstPayload.EventExecutionInfo.AggregateId;
+        var stateMachineId = firstPayload.EventExecutionInfo.StateMachineId;
+        var invalidPayloads = allPayloads
+            .Where(
+                x =>
+                    x.EventExecutionInfo.AggregateId != aggregateId
+                    || x.EventExecutionInfo.StateMachineId != stateMachineId
+            )
+            .ToList();
+
+        var message = string.Format(
+            Constants.DIFFERENT_STATE_MACHINE_ID_OR_AGGREGATE_ID,
+            aggregateId,
+            stateMachineId
+        );
+
+        if (invalidPayloads.Count > 0)
+            throw new EventValidationException(
+                invalidPayloads
+                    .Select(
+                        payload =>
+                            EventValidationResult.FromPayload(
+                                payload,
+                                nameof(ValidateAllEventsHaveSameAggregateIdAndStateMachineId),
+                                false,
+                                message
                             )
                     )
                     .ToList()
