@@ -49,7 +49,10 @@ public class StateCalculator(
             payload
                 .UniqueEventConstraintsToRemove
                 .AddRange(
-                    _uniqueEventConstraintProvider.GetConstraintsToRemove(stateInfo.StateData, payload)
+                    _uniqueEventConstraintProvider.GetConstraintsToRemove(
+                        stateInfo.StateData,
+                        payload
+                    )
                 );
 
             Apply(stateInfo, payload);
@@ -57,7 +60,9 @@ public class StateCalculator(
             payload.UniqueEventConstraintsToAdd.Clear();
             payload
                 .UniqueEventConstraintsToAdd
-                .AddRange(_uniqueEventConstraintProvider.GetConstraintsToAdd(stateInfo.StateData, payload));
+                .AddRange(
+                    _uniqueEventConstraintProvider.GetConstraintsToAdd(stateInfo.StateData, payload)
+                );
 
             var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(
                 payload
@@ -73,7 +78,10 @@ public class StateCalculator(
     private async Task<StateInfo> GetInitialStateInfo(EventPayload firstPayload)
     {
         var stateMachineId = firstPayload.EventExecutionInfo.StateMachineId;
-        var stateData = await _stateDataProvider.GetStateDataByStateMachine(stateMachineId);
+        var stateData = await _stateDataProvider.GetStateDataByStateMachine(
+            stateMachineId,
+            firstPayload.EventExecutionInfo.AggregateId
+        );
 
         var stateInfo = StateInfo.Create(
             stateData,

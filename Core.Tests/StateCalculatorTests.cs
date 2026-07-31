@@ -16,8 +16,17 @@ public sealed class StateCalculatorTests
     {
         var stateDataProvider = new Mock<IStateDataProvider>();
         stateDataProvider
-            .Setup(provider => provider.GetStateDataByStateMachine(StateMachineId))
-            .ReturnsAsync(new AccountStateData { Money = 100 });
+            .Setup(
+                provider =>
+                    provider.GetStateDataByStateMachine(
+                        StateMachineId,
+                        It.IsAny<AggregateId>()
+                    )
+            )
+            .ReturnsAsync(
+                (string _, AggregateId aggregateId) =>
+                    new AccountStateData(aggregateId) { Money = 100 }
+            );
         var validatorProvider = new Mock<IEventValidatorProvider>();
         validatorProvider
             .Setup(provider => provider.GetPreEventStateValidators(It.IsAny<EventPayload>()))
@@ -77,6 +86,7 @@ public sealed class StateCalculatorTests
         Assert.Equal(aggregateId, stateInfo.AggregateId);
         Assert.Equal(StateMachineId, stateInfo.StateMachineId);
         var stateData = Assert.IsType<AccountStateData>(stateInfo.StateData);
+        Assert.Equal(aggregateId, stateData.Id);
         Assert.Equal(70, stateData.Money);
     }
 

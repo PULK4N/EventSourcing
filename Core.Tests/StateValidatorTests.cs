@@ -15,8 +15,8 @@ public sealed class StateValidatorTests
     [InlineData(false)]
     public void ValidateEvent_ThrowsOnlyWhenValidationFails(bool succeeds)
     {
-        var stateData = new AccountStateData();
         var payload = CreatePayload();
+        var stateData = new AccountStateData(payload.EventExecutionInfo.AggregateId);
         var validationResult = EventValidationResult.FromPayload(
             payload,
             "validator",

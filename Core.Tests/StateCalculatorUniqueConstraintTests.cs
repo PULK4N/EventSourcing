@@ -24,8 +24,16 @@ public class StateCalculatorUniqueConstraintTests
             .Setup(provider => provider.GetPostEventStateValidators(It.IsAny<EventPayload>()))
             .ReturnsAsync(new List<IPostEventValidator>());
         _stateDataProvider
-            .Setup(provider => provider.GetStateDataByStateMachine(It.IsAny<string>()))
-            .ReturnsAsync(() => new TestStateData());
+            .Setup(
+                provider =>
+                    provider.GetStateDataByStateMachine(
+                        It.IsAny<string>(),
+                        It.IsAny<AggregateId>()
+                    )
+            )
+            .ReturnsAsync(
+                (string _, AggregateId aggregateId) => new TestStateData(aggregateId)
+            );
 
         _stateCalculator = new StateCalculator(
             new OrderNumberHelper(),
@@ -112,9 +120,9 @@ public class StateCalculatorUniqueConstraintTests
         return payload;
     }
 
-    private sealed class TestStateData : ISharedStateData
+    private sealed class TestStateData(AggregateId aggregateId) : ISharedStateData
     {
-        public AggregateId Id { get; set; }
+        public AggregateId Id { get; init; } = aggregateId;
         public bool IsDeleted { get; set; }
         public string? Email { get; set; }
     }

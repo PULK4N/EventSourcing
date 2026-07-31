@@ -1,6 +1,7 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Models;
 using EventSourcing.Core.Providers;
+using EventSourcing.Shared.Models;
 using Moq;
 
 namespace EventSourcing.Core.Tests;
@@ -22,10 +23,14 @@ public class StateMachineStateDataProviderTests
                 }
             );
         var provider = new StateMachineStateDataProvider(definitions.Object);
+        var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
 
-        var stateData = await provider.GetStateDataByStateMachine("users-state-machine");
+        var stateData = await provider.GetStateDataByStateMachine(
+            "users-state-machine",
+            aggregateId
+        );
 
-        Assert.IsType<YamlUserStateData>(stateData);
+        Assert.Equal(aggregateId, Assert.IsType<YamlUserStateData>(stateData).Id);
         definitions.Verify(
             definitionProvider => definitionProvider.Get("users-state-machine"),
             Times.Once

@@ -164,9 +164,9 @@ public class YamlStateMachineDefinitionProviderTests
     }
 }
 
-public sealed class YamlUserStateData : ISharedStateData
+public sealed class YamlUserStateData(AggregateId aggregateId) : ISharedStateData
 {
-    public AggregateId Id { get; set; }
+    public AggregateId Id { get; init; } = aggregateId;
     public bool IsDeleted { get; set; }
 }
 

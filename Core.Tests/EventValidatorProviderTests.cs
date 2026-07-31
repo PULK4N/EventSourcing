@@ -58,7 +58,7 @@ public sealed class EventValidatorProviderTests
         );
 
         var validationResult = preEventValidator.Validate(
-            new YamlUserStateData(),
+            new YamlUserStateData(payload.EventExecutionInfo.AggregateId),
             payload
         );
         Assert.Equal(payload.EventExecutionInfo.AggregateId, validationResult.AggregateId);

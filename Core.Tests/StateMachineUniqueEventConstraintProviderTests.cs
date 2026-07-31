@@ -40,7 +40,7 @@ public class StateMachineUniqueEventConstraintProviderTests
             "users-state-machine",
             new YamlUserCreated()
         );
-        var stateData = new YamlUserStateData();
+        var stateData = new YamlUserStateData(payload.EventExecutionInfo.AggregateId);
 
         var constraintsToRemove = provider
             .GetConstraintsToRemove(stateData, payload)
@@ -78,7 +78,8 @@ public class StateMachineUniqueEventConstraintProviderTests
             new YamlUserCreated()
         );
 
-        Assert.Empty(provider.GetConstraintsToRemove(new YamlUserStateData(), payload));
-        Assert.Empty(provider.GetConstraintsToAdd(new YamlUserStateData(), payload));
+        var stateData = new YamlUserStateData(payload.EventExecutionInfo.AggregateId);
+        Assert.Empty(provider.GetConstraintsToRemove(stateData, payload));
+        Assert.Empty(provider.GetConstraintsToAdd(stateData, payload));
     }
 }
