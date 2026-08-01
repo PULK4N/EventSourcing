@@ -24,6 +24,28 @@ internal static class StateValidator
         throw new EventValidationException(failedValidations);
     }
 
+    internal static void ValidateOldEventsContainDuplicateOrderNumbers(List<EventPayload> payloads)
+    {
+        var orderNumberCounts = payloads
+            .GroupBy(x => x.EventExecutionInfo.OrderNumber)
+            .ToDictionary(group => group.Last(), group => group.Count());
+
+        foreach (var (payload, count) in orderNumberCounts)
+        {
+            if (count > 1)
+                throw new EventValidationException(
+                    [
+                        EventValidationResult.FromPayload(
+                            payload,
+                            nameof(ValidateOldEventsContainDuplicateOrderNumbers),
+                            false,
+                            Constants.DUPLICATE_ORDER_NUMBER_ON_OLD_EVENTS
+                        )
+                    ]
+                );
+        }
+    }
+
     internal static void ValidateOldEventsContainOrderNumbers(List<EventPayload> payloads)
     {
         var payloadsWithNoOrderNumber = payloads

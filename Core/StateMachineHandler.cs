@@ -9,9 +9,51 @@ public class StateMachineHandler(
     IEventStoreWithOutbox _eventStoreWithOutbox
 )
 {
+    public async Task<StateInfo> ExecuteEvents(EventPayload eventToExecute) =>
+        (await ExecuteEvents([ eventToExecute ]))[eventToExecute.EventExecutionInfo.AggregateId];
+
+    /// <summary>
+    /// Generates stateInfo by executing conditional event
+    /// Then based on those stataInfo it generates new events by delegate
+    /// Then executes again conditional event + new generated events together.
+    /// </summary>
+    /// <param name="conditionalEvent"></param>
+    /// <param name="conditionalEventsMethod"></param>
+    /// <returns>AggregateId -> StateInfo dictionary of executed conditional event + generated events</returns>
     public async Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
-        EventPayload eventToExecute
-    ) => await ExecuteEvents([ eventToExecute ]);
+        EventPayload conditionalEvent,
+        Func<StateInfo, List<EventPayload>> conditionalEventsMethod
+    )
+    {
+        var conditionalEventAggregateId = conditionalEvent.EventExecutionInfo.AggregateId;
+        var existingEvents = await _eventStoreWithOutbox.GetEvents([ conditionalEventAggregateId ]);
+
+        var stateInfoDictionary = await ExecuteEventsInternal(existingEvents, [ conditionalEvent ]);
+        var conditionalEventStateInfo = stateInfoDictionary[conditionalEventAggregateId];
+
+        var generatedEvents = conditionalEventsMethod(stateInfoDictionary[conditionalEventAggregateId]);
+
+        var aggregateIds = generatedEvents
+            .Select(x => x.EventExecutionInfo.AggregateId)
+            .Distinct()
+            .ToList();
+
+        existingEvents = await _eventStoreWithOutbox.GetEvents(aggregateIds);
+
+        var conditionalAggregateEvents = existingEvents.ContainsKey(conditionalEventAggregateId)
+            ? existingEvents[conditionalEventAggregateId].Append(conditionalEvent).ToList()
+            : [ conditionalEvent ];
+        existingEvents[conditionalEventAggregateId] = conditionalAggregateEvents;
+
+        StateValidator.ValidateOldEventsContainDuplicateOrderNumbers(conditionalAggregateEvents);
+
+        stateInfoDictionary = await ExecuteEventsInternal(existingEvents, generatedEvents);
+        AddConditionalEventToStateInfo(stateInfoDictionary, conditionalEventStateInfo);
+
+        await _eventStoreWithOutbox.Write(stateInfoDictionary);
+
+        return stateInfoDictionary;
+    }
 
     public async Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
         List<EventPayload> eventsToExecute
@@ -21,7 +63,25 @@ public class StateMachineHandler(
             .Select(x => x.EventExecutionInfo.AggregateId)
             .Distinct()
             .ToList();
+
         var existingEvents = await _eventStoreWithOutbox.GetEvents(aggregateIds);
+
+        var stateInfoDictionary = await ExecuteEventsInternal(existingEvents, eventsToExecute);
+
+        await _eventStoreWithOutbox.Write(stateInfoDictionary);
+
+        return stateInfoDictionary;
+    }
+
+    protected async Task<Dictionary<AggregateId, StateInfo>> ExecuteEventsInternal(
+        Dictionary<AggregateId, List<EventPayload>> existingEvents,
+        List<EventPayload> eventsToExecute
+    )
+    {
+        var aggregateIds = eventsToExecute
+            .Select(x => x.EventExecutionInfo.AggregateId)
+            .Distinct()
+            .ToList();
 
         var stateInfoDictionary = new Dictionary<AggregateId, StateInfo>();
 
@@ -40,8 +100,21 @@ public class StateMachineHandler(
             stateInfoDictionary.Add(aggregateId, stateInfo);
         }
 
-        await _eventStoreWithOutbox.Write(stateInfoDictionary);
-
         return stateInfoDictionary;
+    }
+
+    private void AddConditionalEventToStateInfo(
+        Dictionary<AggregateId, StateInfo> stateInfoDictionary,
+        StateInfo conditionalEventStateInfo
+    )
+    {
+        if (stateInfoDictionary.ContainsKey(conditionalEventStateInfo.AggregateId))
+            stateInfoDictionary[conditionalEventStateInfo.AggregateId].LastExecutedPayloads =
+                stateInfoDictionary[conditionalEventStateInfo.AggregateId]
+                    .LastExecutedPayloads
+                    .Prepend(conditionalEventStateInfo.LastExecutedPayloads[0])
+                    .ToList();
+        else
+            stateInfoDictionary[conditionalEventStateInfo.AggregateId] = conditionalEventStateInfo;
     }
 }
