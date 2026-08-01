@@ -2,12 +2,12 @@ using System.Linq.Expressions;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Persistence.Models;
+using EventSourcing.Persistence.Serialization;
 using EventSourcing.Shared.Helpers;
 using EventSourcing.Shared.Models;
 using LinqKit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Newtonsoft.Json;
 using NRedisStack;
 using StackExchange.Redis;
 
@@ -49,7 +49,9 @@ namespace EventSourcing.Optimizations
                 else
                 {
                     var serializedPayloads = payloads.Select(SerializedEventPayload.FromPayload).ToList();
-                    var payloadsSerialized = JsonConvert.SerializeObject(serializedPayloads);
+                    var payloadsSerialized = EventJsonSerializer.Serialize(
+                        serializedPayloads
+                    );
                     await _database.StringSetAsync(
                         GetRedisKey(aggregateId),
                         new RedisValue(payloadsSerialized),
@@ -71,7 +73,11 @@ namespace EventSourcing.Optimizations
 
             var payloads = cachedResults
                 .Where(x => x.HasValue)
-                .SelectMany(x => JsonConvert.DeserializeObject<List<SerializedEventPayload>>(x.ToString())!)
+                .SelectMany(
+                    x => EventJsonSerializer.Deserialize<
+                        List<SerializedEventPayload>
+                    >(x.ToString())
+                )
                 .Select(x => x.Deserialize());
 
             return payloads;

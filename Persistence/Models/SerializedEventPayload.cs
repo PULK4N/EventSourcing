@@ -1,7 +1,7 @@
+using EventSourcing.Persistence.Serialization;
 using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
-using Newtonsoft.Json;
 
 namespace EventSourcing.Persistence.Models
 {
@@ -26,7 +26,9 @@ namespace EventSourcing.Persistence.Models
                 EventExecutor = payload.EventExecutionInfo.EventExecutor.Value,
                 EventName = payload.EventExecutionInfo.EventName,
                 StateMachineId = payload.EventExecutionInfo.StateMachineId,
-                SerializedJsonData = JsonConvert.SerializeObject(payload.EventData)
+                SerializedJsonData = EventJsonSerializer.SerializeRuntimeObject(
+                    payload.EventData
+                )
             };
 
             return serilalizedPayload;
@@ -58,7 +60,10 @@ namespace EventSourcing.Persistence.Models
             var eventType = EventTypeContainer.GetEventType(EventName);
 
             var eventData = (IEvent)
-                JsonConvert.DeserializeObject(this.SerializedJsonData, eventType)!;
+                EventJsonSerializer.Deserialize(
+                    this.SerializedJsonData,
+                    eventType
+                );
 
             payload.EventData = eventData;
 

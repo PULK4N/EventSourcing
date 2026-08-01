@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using EventSourcing.Persistence.Serialization;
 using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
-using Newtonsoft.Json;
 
 namespace EventSourcing.Persistence.Models
 {
@@ -30,10 +30,12 @@ namespace EventSourcing.Persistence.Models
         {
             var serilalizedPayload = new SerializedPayloadMessage
             {
-                SerializedEventExecutionInfo = JsonConvert.SerializeObject(
+                SerializedEventExecutionInfo = EventJsonSerializer.Serialize(
                     payload.EventExecutionInfo
                 ),
-                SerializedEventData = JsonConvert.SerializeObject(payload.EventData),
+                SerializedEventData = EventJsonSerializer.SerializeRuntimeObject(
+                    payload.EventData
+                ),
                 AggregateId = payload.EventExecutionInfo.AggregateId.Value
             };
 
@@ -42,14 +44,18 @@ namespace EventSourcing.Persistence.Models
 
         public MessagePayload Deserialize()
         {
-            var eventExecutionInfo = JsonConvert.DeserializeObject<EventExecutionInfo>(
+            var eventExecutionInfo =
+                EventJsonSerializer.Deserialize<EventExecutionInfo>(
                 this.SerializedEventExecutionInfo
             );
 
             var eventType = EventTypeContainer.GetEventType(eventExecutionInfo.EventName);
 
             var eventData = (IEvent)
-                JsonConvert.DeserializeObject(this.SerializedEventData, eventType);
+                EventJsonSerializer.Deserialize(
+                    this.SerializedEventData,
+                    eventType
+                );
 
             var payload = new EventPayload()
             {
