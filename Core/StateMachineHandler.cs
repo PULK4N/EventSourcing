@@ -9,6 +9,16 @@ public class StateMachineHandler(
     IEventStoreWithOutbox _eventStoreWithOutbox
 )
 {
+    // TODO: move elsewhere
+    public async Task<StateInfo?> GetByAggregateId(AggregateId aggregateId)
+    {
+        var payloads = await _eventStoreWithOutbox.GetEvents([ aggregateId ]);
+        if (!payloads.ContainsKey(aggregateId) || payloads[aggregateId].Count == 0)
+            return null;
+
+        return await _stateCalculator.Calculate(payloads[aggregateId], [ ]);
+    }
+
     public async Task<StateInfo> ExecuteEvents(EventPayload eventToExecute) =>
         (await ExecuteEvents([ eventToExecute ]))[eventToExecute.EventExecutionInfo.AggregateId];
 
@@ -31,7 +41,9 @@ public class StateMachineHandler(
         var stateInfoDictionary = await ExecuteEventsInternal(existingEvents, [ conditionalEvent ]);
         var conditionalEventStateInfo = stateInfoDictionary[conditionalEventAggregateId];
 
-        var generatedEvents = conditionalEventsMethod(stateInfoDictionary[conditionalEventAggregateId]);
+        var generatedEvents = conditionalEventsMethod(
+            stateInfoDictionary[conditionalEventAggregateId]
+        );
 
         var aggregateIds = generatedEvents
             .Select(x => x.EventExecutionInfo.AggregateId)
