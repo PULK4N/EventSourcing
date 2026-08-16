@@ -14,14 +14,43 @@ public class Outbox : IOutbox
         _applicationDbContext = applicationDbContext;
     }
 
+    public async Task<MessagePayload?> ReadNext(CancellationToken cancellationToken = default)
+    {
+        var serializedMessage = await _applicationDbContext
+            .SerializedPayloadMessage
+            .Where(
+                message =>
+                    message.Status == MessageStatus.New
+                    && message.ExecutionAttempts < SerializedPayloadMessage.MaxExecutionAttempts
+            )
+            .OrderBy(message => message.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (serializedMessage is null)
+            return null;
+
+        serializedMessage.StartReading();
+
+        try
+        {
+            await _applicationDbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _applicationDbContext.ChangeTracker.Clear();
+            return null;
+        }
+
+        return serializedMessage.Deserialize();
+    }
+
     public async Task UpdateCompleted(long id)
     {
         var serializedMessage = await _applicationDbContext
             .SerializedPayloadMessage
             .FirstAsync(x => x.Id == id);
 
-        ++serializedMessage.ExecutionAttempts;
-        serializedMessage.Status = MessageStatus.Sent;
+        serializedMessage.Complete();
 
         _applicationDbContext.Update(serializedMessage);
         await _applicationDbContext.SaveChangesAsync();
@@ -33,8 +62,7 @@ public class Outbox : IOutbox
             .SerializedPayloadMessage
             .FirstAsync(x => x.Id == id);
 
-        ++serializedMessage.ExecutionAttempts;
-        serializedMessage.Status = MessageStatus.New;
+        serializedMessage.Fail();
 
         _applicationDbContext.Update(serializedMessage);
         await _applicationDbContext.SaveChangesAsync();

@@ -3,6 +3,7 @@ using EventSourcing.Persistence.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace EventSourcing.Core.Tests;
 
@@ -59,5 +60,27 @@ public sealed class OutboxRegistrationTests
             descriptor.ImplementationType
         );
         Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
+    }
+
+    [Fact]
+    public void CoreRegistrationRegistersScopedProcessorAndHostedOutboxWorker()
+    {
+        var services = new ServiceCollection();
+
+        services.RegisterEventSourcingCore(typeof(Registration).Assembly);
+
+        var processor = Assert.Single(
+            services,
+            descriptor => descriptor.ServiceType == typeof(OutboxMessageProcessor)
+        );
+        Assert.Equal(ServiceLifetime.Scoped, processor.Lifetime);
+
+        var worker = Assert.Single(
+            services,
+            descriptor =>
+                descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(OutboxBackgroundService)
+        );
+        Assert.Equal(ServiceLifetime.Singleton, worker.Lifetime);
     }
 }

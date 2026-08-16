@@ -26,6 +26,9 @@ public sealed class ProjectionOutbox : IOutbox
         _projectors = CreateProjectorDictionary(projectors);
     }
 
+    public Task<MessagePayload?> ReadNext(CancellationToken cancellationToken = default) =>
+        Task.FromResult<MessagePayload?>(null);
+
     public Task UpdateCompleted(long id) => Task.CompletedTask;
 
     public Task UpdateFailed(long id) => Task.CompletedTask;

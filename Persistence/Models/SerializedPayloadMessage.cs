@@ -16,6 +16,8 @@ namespace EventSourcing.Persistence.Models
 
     public class SerializedPayloadMessage
     {
+        public const int MaxExecutionAttempts = 3;
+
         public long Id { get; set; }
         public Guid AggregateId { get; set; }
         public string SerializedEventExecutionInfo { get; set; }
@@ -63,7 +65,40 @@ namespace EventSourcing.Persistence.Models
                 EventExecutionInfo = eventExecutionInfo
             };
 
-            return new MessagePayload() { Payload = payload, Id = this.Id };
+            return new MessagePayload()
+            {
+                Payload = payload,
+                Id = this.Id,
+                ExecutionAttempts = this.ExecutionAttempts
+            };
+        }
+
+        public void StartReading()
+        {
+            if (Status != MessageStatus.New)
+                throw new InvalidOperationException(
+                    $"Only new outbox messages can be read. Message {Id} is {Status}."
+                );
+
+            if (ExecutionAttempts >= MaxExecutionAttempts)
+                throw new InvalidOperationException(
+                    $"Outbox message {Id} has exhausted its retry attempts."
+                );
+
+            ++ExecutionAttempts;
+            Status = MessageStatus.Reading;
+        }
+
+        public void Complete()
+        {
+            Status = MessageStatus.Sent;
+        }
+
+        public void Fail()
+        {
+            Status = ExecutionAttempts >= MaxExecutionAttempts
+                ? MessageStatus.Error
+                : MessageStatus.New;
         }
     }
 }
