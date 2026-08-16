@@ -1,7 +1,6 @@
 using System.Reflection;
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
-using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
@@ -34,8 +33,6 @@ namespace EventSourcing.Core
                 IUniqueEventConstraintProvider,
                 StateMachineUniqueEventConstraintProvider
             >();
-
-            services.AddScoped<IOutbox, ProjectionOutbox>();
 
             return services;
         }

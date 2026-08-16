@@ -14,8 +14,7 @@ public static class InjectionSetup
     )
     {
         service.AddScoped<IEventStore, EventStore>();
-        // For now we prefer ProjectionOutbox from Core
-        // service.AddScoped<IOutbox, Outbox>();
+        service.AddScoped<IOutbox, Outbox>();
         service.AddScoped<IEventStoreWithOutbox, EventStoreWithOutbox>();
         service.AddScoped<BaseSqlEventStore>();
 

@@ -43,9 +43,9 @@ public class Outbox : IOutbox
     public async Task Write(Dictionary<AggregateId, StateInfo> stateInfos)
     {
         var payloads = stateInfos.Values.SelectMany(x => x.LastExecutedPayloads).ToList();
-        var aggregateIds = payloads.Select(x => x.EventExecutionInfo.AggregateId);
-
-        var serializedPayloadMessages = payloads.Select(SerializedPayloadMessage.FromPayload);
+        var serializedPayloadMessages = payloads
+            .Select(SerializedPayloadMessage.FromPayload)
+            .ToList();
 
         await _applicationDbContext
             .SerializedPayloadMessage
