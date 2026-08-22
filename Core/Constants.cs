@@ -10,4 +10,6 @@ public class Constants
         "New event payloads must not contain order numbers!";
     public const string DIFFERENT_STATE_MACHINE_ID_OR_AGGREGATE_ID =
         "Provided events must contain same aggregate id and state machine id as the first event.\nFirst Event Payload aggregateId: {0}, first Event Payload state machine id: {1}";
+    public const string INITIALIZATION_EVENT_REQUIRED =
+        "The first event for a new aggregate must be configured as an initialization event.";
 }

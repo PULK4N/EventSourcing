@@ -162,12 +162,17 @@ public sealed class OutboxMessageProcessorTests
                 )
             )
             .Returns([ ]);
+        var stateMachineDefinitionsProvider = new Mock<IStateMachineDefinitionProvider>();
+        stateMachineDefinitionsProvider
+            .Setup(provider => provider.Get(StateMachineId))
+            .Returns(new StateMachineDefinition { Id = StateMachineId });
 
         return new StateCalculator(
             new OrderNumberHelper(),
             stateDataProvider.Object,
             validatorProvider.Object,
-            constraintProvider.Object
+            constraintProvider.Object,
+            stateMachineDefinitionsProvider.Object
         );
     }
 

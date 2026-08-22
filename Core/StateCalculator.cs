@@ -8,7 +8,8 @@ public class StateCalculator(
     OrderNumberHelper _orderNumberHelper,
     IStateDataProvider _stateDataProvider,
     IEventValidatorProvider _validatorProvider,
-    IUniqueEventConstraintProvider _uniqueEventConstraintProvider
+    IUniqueEventConstraintProvider _uniqueEventConstraintProvider,
+    IStateMachineDefinitionProvider _stateMachineDefinitionsProvider
 )
 {
     public async Task<StateInfo> Calculate(
@@ -16,8 +17,19 @@ public class StateCalculator(
         List<EventPayload> newPayloads
     )
     {
+        var stateMachineId = existingPayloads.Count > 0
+            ? existingPayloads.First().EventExecutionInfo.StateMachineId
+            : newPayloads.First().EventExecutionInfo.StateMachineId;
+
+        var stateMachineDefinition = _stateMachineDefinitionsProvider.Get(stateMachineId);
+
         StateValidator.ValidateOldEventsContainOrderNumbers(existingPayloads);
         StateValidator.ValidateNewEventsOrderNumbers(newPayloads);
+        StateValidator.ValidateInitializationEvents(
+            existingPayloads,
+            newPayloads,
+            stateMachineDefinition.InitializationEvents
+        );
 
         existingPayloads = existingPayloads.OrderBy(x => x.EventExecutionInfo.OrderNumber).ToList();
 

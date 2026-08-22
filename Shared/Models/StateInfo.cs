@@ -24,12 +24,14 @@ namespace EventSourcing.Shared.Models
             AggregateId aggregateId
         )
         {
-            var stateInfo = new StateInfo();
-            stateInfo.CurrentOrderNumber = 1;
-            stateInfo.AggregateId = aggregateId;
-            stateInfo.LastUpdateTimestamp = DateTime.UtcNow;
-            stateInfo.StateMachineId = stateMachineId;
-            stateInfo.StateData = stateData;
+            var stateInfo = new StateInfo
+            {
+                CurrentOrderNumber = 1,
+                AggregateId = aggregateId,
+                LastUpdateTimestamp = DateTime.UtcNow,
+                StateMachineId = stateMachineId,
+                StateData = stateData
+            };
 
             return stateInfo;
         }

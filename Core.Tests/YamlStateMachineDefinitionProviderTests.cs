@@ -22,6 +22,8 @@ public class YamlStateMachineDefinitionProviderTests
                 """
                 id: users-state-machine
                 stateData: YamlUserStateData
+                initializationEvents:
+                  - YamlUserCreated
                 projections:
                   - user-audit
                 events:
@@ -42,6 +44,7 @@ public class YamlStateMachineDefinitionProviderTests
 
             var definition = provider.Get("users-state-machine");
             Assert.Equal("YamlUserStateData", definition.StateData);
+            Assert.Equal([ "YamlUserCreated" ], definition.InitializationEvents);
             Assert.Equal([ "user-audit" ], definition.Projections);
             var userCreated = definition.Events["YamlUserCreated"];
             Assert.Equal([ "YamlPreEventValidator" ], userCreated.PreEventValidators);
@@ -138,6 +141,35 @@ public class YamlStateMachineDefinitionProviderTests
                 stateData: YamlUserStateData
                 events:
                   MissingEvent: {}
+                """
+            );
+
+            var exception = Assert.Throws<EventNotRegisteredException>(
+                () => new YamlStateMachineDefinitionProvider(directoryPath)
+            );
+
+            Assert.Contains("MissingEvent", exception.Message);
+        }
+        finally
+        {
+            Directory.Delete(directoryPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void RejectsUnregisteredInitializationEvent()
+    {
+        var directoryPath = CreateTemporaryDirectory();
+
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(directoryPath, "users.yaml"),
+                """
+                id: users-state-machine
+                stateData: YamlUserStateData
+                initializationEvents:
+                  - MissingEvent
                 """
             );
 

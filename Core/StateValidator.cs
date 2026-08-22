@@ -6,6 +6,29 @@ namespace EventSourcing.Core;
 
 internal static class StateValidator
 {
+    internal static void ValidateInitializationEvents(
+        List<EventPayload> existingEvents,
+        List<EventPayload> newEvents,
+        HashSet<string> InitializationEvents
+    )
+    {
+        if (
+            existingEvents.Count == 0
+            && newEvents.FirstOrDefault() is { } firstEvent
+            && !InitializationEvents.Contains(firstEvent.EventExecutionInfo.EventName)
+        )
+            throw new EventValidationException(
+                [
+                    EventValidationResult.FromPayload(
+                            firstEvent,
+                            nameof(ValidateInitializationEvents),
+                            false,
+                            Constants.INITIALIZATION_EVENT_REQUIRED
+                        )
+                ]
+            );
+    }
+
     internal static void ValidateEvent(
         object stateData,
         EventPayload payload,

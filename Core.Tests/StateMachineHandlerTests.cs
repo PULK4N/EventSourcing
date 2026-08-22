@@ -1,4 +1,5 @@
 using EventSourcing.Core.Interfaces;
+using EventSourcing.Core.Models;
 using EventSourcing.Core.Providers;
 using EventSourcing.Core.Tests.TestModels;
 using EventSourcing.Persistence.Interfaces;
@@ -60,13 +61,18 @@ public sealed class StateMachineHandlerTests
         _eventStoreWithOutbox
             .Setup(x => x.Write(It.IsAny<Dictionary<AggregateId, StateInfo>>()))
             .Returns(Task.CompletedTask);
+        var stateMachineDefinitionsProvider = new Mock<IStateMachineDefinitionProvider>();
+        stateMachineDefinitionsProvider
+            .Setup(provider => provider.Get(StateMachineId))
+            .Returns(new StateMachineDefinition { Id = StateMachineId });
 
         _stateMachineHandler = new StateMachineHandler(
             new StateCalculator(
                 new OrderNumberHelper(),
                 stateDataProvider.Object,
                 validatorProvider.Object,
-                constraintProvider.Object
+                constraintProvider.Object,
+                stateMachineDefinitionsProvider.Object
             ),
             _eventStoreWithOutbox.Object
         );

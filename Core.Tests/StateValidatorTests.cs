@@ -11,6 +11,43 @@ public sealed class StateValidatorTests
     private const string StateMachineId = "state-validator-tests";
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ValidateInitializationEvents_RequiresInitializationOnlyForNewAggregate(
+        bool hasExistingEvents,
+        bool newEventIsInitializationEvent
+    )
+    {
+        var existingEvents = hasExistingEvents
+            ? new List<EventPayload> { CreatePayload(orderNumber: 1) }
+            : [ ];
+        var newEvent = CreatePayload();
+        var initializationEvents = newEventIsInitializationEvent
+            ? new HashSet<string> { newEvent.EventExecutionInfo.EventName }
+            : [ ];
+
+        void Validate() =>
+            StateValidator.ValidateInitializationEvents(
+                existingEvents,
+                [ newEvent ],
+                initializationEvents
+            );
+
+        if (hasExistingEvents || newEventIsInitializationEvent)
+        {
+            Validate();
+            return;
+        }
+
+        var exception = Assert.Throws<EventValidationException>(Validate);
+        var result = Assert.Single(exception.ValidationResults);
+        Assert.Equal(nameof(StateValidator.ValidateInitializationEvents), result.ValidatorName);
+        Assert.Equal(Constants.INITIALIZATION_EVENT_REQUIRED, result.FailureReason);
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void ValidateEvent_ThrowsOnlyWhenValidationFails(bool succeeds)

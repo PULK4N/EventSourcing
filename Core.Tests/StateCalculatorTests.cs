@@ -1,4 +1,5 @@
 using EventSourcing.Core.Interfaces;
+using EventSourcing.Core.Models;
 using EventSourcing.Core.Providers;
 using EventSourcing.Core.Tests.TestModels;
 using EventSourcing.Shared.Exceptions;
@@ -53,11 +54,42 @@ public sealed class StateCalculatorTests
                     )
             )
             .Returns([ ]);
+        var stateMachineDefinitionsProvider = new Mock<IStateMachineDefinitionProvider>();
+        stateMachineDefinitionsProvider
+            .Setup(provider => provider.Get(StateMachineId))
+            .Returns(
+                new StateMachineDefinition
+                {
+                    Id = StateMachineId,
+                    InitializationEvents = [ nameof(TransferMoney) ]
+                }
+            );
         _stateCalculator = new StateCalculator(
             new OrderNumberHelper(),
             stateDataProvider.Object,
             validatorProvider.Object,
-            constraintProvider.Object
+            constraintProvider.Object,
+            stateMachineDefinitionsProvider.Object
+        );
+    }
+
+    [Fact]
+    public async Task Calculate_RequiresInitializationEventForNewAggregate()
+    {
+        var payload = EventPayload.Create(
+            EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
+            AggregateId.FromDatabaseGuid(Guid.NewGuid()),
+            StateMachineId,
+            new MultiplyMoney { Multiplier = 2 }
+        );
+
+        var exception = await Assert.ThrowsAsync<EventValidationException>(
+            () => _stateCalculator.Calculate([ ], [ payload ])
+        );
+
+        Assert.Equal(
+            Constants.INITIALIZATION_EVENT_REQUIRED,
+            Assert.Single(exception.ValidationResults).FailureReason
         );
     }
 

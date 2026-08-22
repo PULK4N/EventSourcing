@@ -4,6 +4,7 @@ public sealed class StateMachineDefinition
 {
     public string Id { get; set; } = string.Empty;
     public string StateData { get; set; } = string.Empty;
+    public HashSet<string> InitializationEvents { get; set; } = new(StringComparer.Ordinal);
     public List<string> Projections { get; set; } = [ ];
     public Dictionary<string, StateMachineEventDefinition> Events { get; set; } = [ ];
 }

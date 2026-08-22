@@ -1,4 +1,5 @@
 using EventSourcing.Core.Interfaces;
+using EventSourcing.Core.Models;
 using EventSourcing.Core.Providers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
@@ -35,11 +36,17 @@ public class StateCalculatorUniqueConstraintTests
                 (string _, AggregateId aggregateId) => new TestStateData(aggregateId)
             );
 
+        var stateMachineDefinitionsProvider = new Mock<IStateMachineDefinitionProvider>();
+        stateMachineDefinitionsProvider
+            .Setup(provider => provider.Get("users-state-machine"))
+            .Returns(new StateMachineDefinition { Id = "users-state-machine" });
+
         _stateCalculator = new StateCalculator(
             new OrderNumberHelper(),
             _stateDataProvider.Object,
             _validatorProvider.Object,
-            _constraintProvider.Object
+            _constraintProvider.Object,
+            stateMachineDefinitionsProvider.Object
         );
     }
 

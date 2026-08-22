@@ -115,8 +115,19 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
 
         StateDataTypeContainer.GetStateDataType(definition.StateData);
 
+        definition.InitializationEvents = definition.InitializationEvents ?? [ ];
         definition.Projections ??=  [ ];
         definition.Events ??=  [ ];
+
+        foreach (var initializationEvent in definition.InitializationEvents)
+        {
+            if (string.IsNullOrWhiteSpace(initializationEvent))
+                throw new InvalidOperationException(
+                    $"State machine '{definition.Id}' contains an empty initialization event."
+                );
+
+            EventTypeContainer.GetEventType(initializationEvent);
+        }
 
         foreach (var (eventName, eventDefinition) in definition.Events)
         {
