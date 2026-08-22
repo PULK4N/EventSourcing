@@ -47,7 +47,7 @@ public sealed class OutboxMessageProcessorTests
         Assert.Equal(90, Assert.IsType<AccountStateData>(projectedState.StateData).Money);
         Assert.Same(firstPayload, Assert.Single(projectedState.LastExecutedPayloads));
         outbox.Verify(x => x.UpdateCompleted(42), Times.Once);
-        outbox.Verify(x => x.UpdateFailed(It.IsAny<long>()), Times.Never);
+        outbox.Verify(x => x.UpdateFailed(It.IsAny<long>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -78,7 +78,14 @@ public sealed class OutboxMessageProcessorTests
         var processed = await processor.ProcessNext();
 
         Assert.True(processed);
-        outbox.Verify(x => x.UpdateFailed(84), Times.Once);
+        outbox.Verify(
+            x =>
+                x.UpdateFailed(
+                    84,
+                    It.Is<string>(error => error.Contains("Projection failed."))
+                ),
+            Times.Once
+        );
         outbox.Verify(x => x.UpdateCompleted(It.IsAny<long>()), Times.Never);
     }
 

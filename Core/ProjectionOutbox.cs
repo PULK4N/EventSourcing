@@ -31,7 +31,7 @@ public sealed class ProjectionOutbox : IOutbox
 
     public Task UpdateCompleted(long id) => Task.CompletedTask;
 
-    public Task UpdateFailed(long id) => Task.CompletedTask;
+    public Task UpdateFailed(long id, string error) => Task.CompletedTask;
 
     public async Task Write(Dictionary<AggregateId, StateInfo> stateInfos)
     {

@@ -24,6 +24,7 @@ namespace EventSourcing.Persistence.Models
         public string SerializedEventData { get; set; }
         public int ExecutionAttempts { get; set; } = 0;
         public MessageStatus Status { get; set; } = MessageStatus.New;
+        public string? Error { get; set; }
 
         [Timestamp]
         public byte[] Version { get; set; }
@@ -92,10 +93,12 @@ namespace EventSourcing.Persistence.Models
         public void Complete()
         {
             Status = MessageStatus.Sent;
+            Error = null;
         }
 
-        public void Fail()
+        public void Fail(string error)
         {
+            Error = error;
             Status = ExecutionAttempts >= MaxExecutionAttempts
                 ? MessageStatus.Error
                 : MessageStatus.New;

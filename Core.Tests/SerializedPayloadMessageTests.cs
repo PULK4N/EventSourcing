@@ -10,30 +10,34 @@ public sealed class SerializedPayloadMessageTests
         var message = new SerializedPayloadMessage();
 
         message.StartReading();
-        message.Fail();
+        message.Fail("First failure");
         Assert.Equal(1, message.ExecutionAttempts);
         Assert.Equal(MessageStatus.New, message.Status);
+        Assert.Equal("First failure", message.Error);
 
         message.StartReading();
-        message.Fail();
+        message.Fail("Second failure");
         Assert.Equal(2, message.ExecutionAttempts);
         Assert.Equal(MessageStatus.New, message.Status);
+        Assert.Equal("Second failure", message.Error);
 
         message.StartReading();
-        message.Fail();
+        message.Fail("Final failure");
         Assert.Equal(3, message.ExecutionAttempts);
         Assert.Equal(MessageStatus.Error, message.Status);
+        Assert.Equal("Final failure", message.Error);
     }
 
     [Fact]
     public void CompletionMarksClaimedMessageAsSentWithoutAddingAnotherAttempt()
     {
-        var message = new SerializedPayloadMessage();
+        var message = new SerializedPayloadMessage { Error = "Previous failure" };
 
         message.StartReading();
         message.Complete();
 
         Assert.Equal(1, message.ExecutionAttempts);
         Assert.Equal(MessageStatus.Sent, message.Status);
+        Assert.Null(message.Error);
     }
 }

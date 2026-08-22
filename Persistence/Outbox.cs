@@ -56,13 +56,13 @@ public class Outbox : IOutbox
         await _applicationDbContext.SaveChangesAsync();
     }
 
-    public async Task UpdateFailed(long id)
+    public async Task UpdateFailed(long id, string error)
     {
         var serializedMessage = await _applicationDbContext
             .SerializedPayloadMessage
             .FirstAsync(x => x.Id == id);
 
-        serializedMessage.Fail();
+        serializedMessage.Fail(error);
 
         _applicationDbContext.Update(serializedMessage);
         await _applicationDbContext.SaveChangesAsync();

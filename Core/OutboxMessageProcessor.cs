@@ -62,7 +62,7 @@ public sealed class OutboxMessageProcessor(
         }
         catch (Exception exception)
         {
-            await outbox.UpdateFailed(message.Id);
+            await outbox.UpdateFailed(message.Id, exception.ToString());
 
             if (message.ExecutionAttempts >= 3)
                 logger.LogError(
