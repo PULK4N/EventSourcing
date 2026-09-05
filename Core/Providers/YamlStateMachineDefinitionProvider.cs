@@ -146,6 +146,16 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
             eventDefinition.PostEventValidators ??=  [ ];
             eventDefinition.UniqueConstraints ??=  [ ];
             eventDefinition.Projections ??=  [ ];
+            eventDefinition.Hooks ??= new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var hookName in eventDefinition.Hooks)
+            {
+                if (string.IsNullOrWhiteSpace(hookName))
+                    throw new InvalidOperationException(
+                        $"Event '{eventName}' in state machine '{definition.Id}' "
+                            + "contains an empty hook name."
+                    );
+            }
 
             ValidateValidatorTypes<IPreEventValidator>(
                 eventDefinition.PreEventValidators,

@@ -185,6 +185,54 @@ public class YamlStateMachineDefinitionProviderTests
         }
     }
 
+    [Theory]
+    [InlineData("{}", 0, false)]
+    [InlineData("{hooks: null}", 0, false)]
+    [InlineData("{hooks: []}", 0, false)]
+    [InlineData("{hooks: [NotifyHook, NotifyHook, notifyhook]}", 2, false)]
+    [InlineData("{hooks: ['']}", 0, true)]
+    [InlineData("{hooks: [' ']}", 0, true)]
+    [InlineData("{hooks: [null]}", 0, true)]
+    public void LoadsHookSetsAndRejectsBlankNames(
+        string eventDefinition, int expectedCount, bool shouldThrow)
+    {
+        var directoryPath = CreateTemporaryDirectory();
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(directoryPath, "hooks.yaml"),
+                $"""
+                id: users-state-machine
+                stateData: YamlUserStateData
+                events:
+                  YamlUserCreated: {eventDefinition}
+                """
+            );
+
+            if (shouldThrow)
+            {
+                var exception = Assert.Throws<InvalidOperationException>(() =>
+                    new YamlStateMachineDefinitionProvider(directoryPath));
+                Assert.Contains("empty hook name", exception.Message);
+                Assert.Contains("users-state-machine", exception.Message);
+                Assert.Contains(nameof(YamlUserCreated), exception.Message);
+            }
+            else
+            {
+                var provider = new YamlStateMachineDefinitionProvider(directoryPath);
+                var hooks = provider.Get("users-state-machine")
+                    .Events[nameof(YamlUserCreated)].Hooks;
+                Assert.Equal(expectedCount, hooks.Count);
+                if (expectedCount > 0)
+                    Assert.True(hooks.SetEquals(["NotifyHook", "notifyhook"]));
+            }
+        }
+        finally
+        {
+            Directory.Delete(directoryPath, recursive: true);
+        }
+    }
+
     private static string CreateTemporaryDirectory()
     {
         var directoryPath = Path.Combine(

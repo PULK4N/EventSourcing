@@ -5,6 +5,7 @@ using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Shared.Interfaces;
 
 namespace EventSourcing.Core
@@ -29,6 +30,7 @@ namespace EventSourcing.Core
                 YamlStateMachineDefinitionProvider
             >();
             services.AddScoped<IEventValidatorProvider, EventValidatorProvider>();
+            services.TryAddScoped<IEventHookProvider, StateMachineEventHookProvider>();
             services.AddScoped<IStateDataProvider, StateMachineStateDataProvider>();
             services.AddScoped<
                 IUniqueEventConstraintProvider,
