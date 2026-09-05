@@ -20,8 +20,6 @@ namespace EventSourcing.Core
             services.AddScoped<StateMachineHandler>();
             services.AddScoped<StateCalculator>();
             services.AddScoped<ProjectionOutbox>();
-            services.AddScoped<OutboxMessageProcessor>();
-            services.AddHostedService<OutboxBackgroundService>();
             services.RegisterStateDataTypes(applicationAssemblies);
             services.RegisterEventTypes(applicationAssemblies);
             services.RegisterUniqueEventConstraintCreators(applicationAssemblies);

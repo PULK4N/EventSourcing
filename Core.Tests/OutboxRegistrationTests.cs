@@ -63,24 +63,15 @@ public sealed class OutboxRegistrationTests
     }
 
     [Fact]
-    public void CoreRegistrationRegistersScopedProcessorAndHostedOutboxWorker()
+    public void CoreRegistrationDoesNotRegisterHostedServices()
     {
         var services = new ServiceCollection();
 
         services.RegisterEventSourcingCore(typeof(Registration).Assembly);
 
-        var processor = Assert.Single(
+        Assert.DoesNotContain(
             services,
-            descriptor => descriptor.ServiceType == typeof(OutboxMessageProcessor)
+            descriptor => descriptor.ServiceType == typeof(IHostedService)
         );
-        Assert.Equal(ServiceLifetime.Scoped, processor.Lifetime);
-
-        var worker = Assert.Single(
-            services,
-            descriptor =>
-                descriptor.ServiceType == typeof(IHostedService)
-                && descriptor.ImplementationType == typeof(OutboxBackgroundService)
-        );
-        Assert.Equal(ServiceLifetime.Singleton, worker.Lifetime);
     }
 }
