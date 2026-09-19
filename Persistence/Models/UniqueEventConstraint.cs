@@ -47,3 +47,5 @@ public class UniqueEventConstraint
         hash.AppendData(bytes);
     }
 }
+
+public record struct ConstraintTransfer(UniqueEventConstraint Previous, UniqueEventConstraint New);

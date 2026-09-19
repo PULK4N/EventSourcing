@@ -7,6 +7,7 @@ using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 using Moq;
+using Microsoft.EntityFrameworkCore;
 
 namespace EventSourcing.Core.Tests;
 
@@ -79,7 +80,7 @@ public sealed class StateMachineHandlerTests
     }
 
     [Fact(
-        DisplayName = "ExecuteConditionalEvents throws when the event store retrieves an event with the conditional event order number"
+        DisplayName = "ExecuteConditionalEvents propagates a write conflict without reloading history"
     )]
     public async Task DuplicateOrderNumber()
     {
@@ -93,27 +94,20 @@ public sealed class StateMachineHandlerTests
             aggregateId,
             new MultiplyMoney { Multiplier = 2 }
         );
-        var conflictingEvent = CreatePayload(
-            aggregateId,
-            new TransferMoney { MoneySent = 20 },
-            2
-        );
         var generatedEvent = CreatePayload(
             aggregateId,
             new TransferMoney { MoneySent = 30 }
         );
+        SetupEventStore(new Dictionary<AggregateId, List<EventPayload>>
+        {
+            [aggregateId] = [ existingEvent ]
+        });
+        var writeConflict = new DbUpdateException("Duplicate aggregate order number.");
         _eventStoreWithOutbox
-            .SetupSequence(x => x.GetEvents(It.IsAny<List<AggregateId>>()))
-            .ReturnsAsync(new Dictionary<AggregateId, List<EventPayload>>
-            {
-                [aggregateId] = [ existingEvent ]
-            })
-            .ReturnsAsync(new Dictionary<AggregateId, List<EventPayload>>
-            {
-                [aggregateId] = [ existingEvent, conflictingEvent ]
-            });
+            .Setup(x => x.Write(It.IsAny<Dictionary<AggregateId, StateInfo>>()))
+            .ThrowsAsync(writeConflict);
 
-        var exception = await Assert.ThrowsAsync<EventValidationException>(
+        var exception = await Assert.ThrowsAsync<DbUpdateException>(
             () =>
                 _stateMachineHandler.ExecuteEvents(
                     conditionalEvent,
@@ -122,13 +116,14 @@ public sealed class StateMachineHandlerTests
         );
 
         Assert.Equal(2u, conditionalEvent.EventExecutionInfo.OrderNumber);
-        Assert.Equal(
-            Constants.DUPLICATE_ORDER_NUMBER_ON_OLD_EVENTS,
-            Assert.Single(exception.ValidationResults).FailureReason
+        Assert.Same(writeConflict, exception);
+        _eventStoreWithOutbox.Verify(
+            x => x.GetEvents(It.IsAny<List<AggregateId>>()),
+            Times.Once
         );
         _eventStoreWithOutbox.Verify(
             x => x.Write(It.IsAny<Dictionary<AggregateId, StateInfo>>()),
-            Times.Never
+            Times.Once
         );
     }
 
@@ -152,15 +147,15 @@ public sealed class StateMachineHandlerTests
             new Dictionary<AggregateId, List<EventPayload>>
             {
                 [aggregateId] = [ existingEvent ]
-            },
-            [ ]
+            }
         );
 
         var stateInfos = await _stateMachineHandler.ExecuteEvents(
             conditionalEvent,
             stateInfo =>
             {
-                moneyReceivedByConditionalMethod = ((AccountStateData)stateInfo.StateData).Money;
+                moneyReceivedByConditionalMethod =
+                    ((AccountStateData)Assert.Single(stateInfo).StateData).Money;
                 return [ ];
             }
         );
@@ -202,7 +197,7 @@ public sealed class StateMachineHandlerTests
         {
             [aggregateId] = [ existingEvent ]
         };
-        SetupEventStore(existingEvents, existingEvents);
+        SetupEventStore(existingEvents);
 
         var stateInfos = await _stateMachineHandler.ExecuteEvents(
             conditionalEvent,
@@ -218,6 +213,10 @@ public sealed class StateMachineHandlerTests
         Assert.Equal(
             [ conditionalEvent, transferEvent, multiplyEvent ],
             stateInfo.LastExecutedPayloads
+        );
+        _eventStoreWithOutbox.Verify(
+            x => x.GetEvents(It.IsAny<List<AggregateId>>()),
+            Times.Once
         );
     }
 
@@ -253,10 +252,6 @@ public sealed class StateMachineHandlerTests
         SetupEventStore(
             new Dictionary<AggregateId, List<EventPayload>>
             {
-                [conditionalAggregateId] = [ conditionalExistingEvent ]
-            },
-            new Dictionary<AggregateId, List<EventPayload>>
-            {
                 [conditionalAggregateId] = [ conditionalExistingEvent ],
                 [otherAggregateId] = [ otherExistingEvent ]
             }
@@ -282,16 +277,97 @@ public sealed class StateMachineHandlerTests
         Assert.Equal([ otherAggregateEvent ], otherStateInfo.LastExecutedPayloads);
 
         _eventStoreWithOutbox.Verify(x => x.Write(stateInfos), Times.Once);
+        _eventStoreWithOutbox.Verify(
+            x => x.GetEvents(It.Is<List<AggregateId>>(ids =>
+                ids.Count == 1 && ids[0] == conditionalAggregateId)),
+            Times.Once
+        );
+        _eventStoreWithOutbox.Verify(
+            x => x.GetEvents(It.Is<List<AggregateId>>(ids =>
+                ids.Count == 1 && ids[0] == otherAggregateId)),
+            Times.Once
+        );
+        _eventStoreWithOutbox.Verify(
+            x => x.GetEvents(It.IsAny<List<AggregateId>>()),
+            Times.Exactly(2)
+        );
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task MultipleInitialEventsAndChainedCallbacks(int callbackCount)
+    {
+        var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
+        var otherAggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
+        SetupEventStore(new Dictionary<AggregateId, List<EventPayload>>
+        {
+            [aggregateId] = [ CreatePayload(aggregateId, new TransferMoney { MoneySent = 10 }, 1) ],
+            [otherAggregateId] = [ CreatePayload(otherAggregateId, new TransferMoney { MoneySent = 5 }, 1) ]
+        });
+        var initialEvents = new List<EventPayload>
+        {
+            CreatePayload(aggregateId, new MultiplyMoney { Multiplier = 2 }),
+            CreatePayload(aggregateId, new TransferMoney { MoneySent = 10 }),
+            CreatePayload(otherAggregateId, new MultiplyMoney { Multiplier = 2 })
+        };
+        var expectedEvents = new List<EventPayload>(initialEvents);
+        var observedBalances = new List<float>();
+        var callbacks = new List<Func<StateInfo[], List<EventPayload>>>();
+        for (var index = 0; index < callbackCount; index++)
+        {
+            callbacks.Add(states =>
+            {
+                Assert.Equal(2, states.Length);
+                var state = Assert.Single(states, state => state.AggregateId == aggregateId);
+                observedBalances.Add(Assert.IsType<AccountStateData>(state.StateData).Money);
+                var generatedEvent = CreatePayload(aggregateId, new TransferMoney { MoneySent = 10 });
+                expectedEvents.Add(generatedEvent);
+                return [ generatedEvent ];
+            });
+        }
+
+        var results = await _stateMachineHandler.ExecuteEvents(initialEvents, callbacks.ToArray());
+
+        Assert.Equal(
+            Enumerable.Range(0, callbackCount).Select(index => 170f - index * 10),
+            observedBalances
+        );
+        Assert.Equal(2, results.Count);
+        Assert.Equal(170f - callbackCount * 10, Assert.IsType<AccountStateData>(results[aggregateId].StateData).Money);
+        Assert.Equal(190f, Assert.IsType<AccountStateData>(results[otherAggregateId].StateData).Money);
+        Assert.Equal((uint)(3 + callbackCount), results[aggregateId].CurrentOrderNumber);
+        Assert.Equal(2u, results[otherAggregateId].CurrentOrderNumber);
+        foreach (var (id, state) in results)
+        {
+            Assert.Equal(
+                expectedEvents.Where(payload => payload.EventExecutionInfo.AggregateId == id),
+                state.LastExecutedPayloads
+            );
+            Assert.Equal(
+                Enumerable.Range(2, state.LastExecutedPayloads.Count).Select(order => (uint)order),
+                state.LastExecutedPayloads.Select(payload => payload.EventExecutionInfo.OrderNumber)
+            );
+        }
+        _eventStoreWithOutbox.Verify(
+            store => store.GetEvents(It.Is<List<AggregateId>>(ids =>
+                ids.Count == 2 && ids.Contains(aggregateId) && ids.Contains(otherAggregateId))),
+            Times.Once
+        );
+        _eventStoreWithOutbox.Verify(store => store.GetEvents(It.IsAny<List<AggregateId>>()), Times.Once);
+        _eventStoreWithOutbox.Verify(store => store.Write(results), Times.Once);
     }
 
     private void SetupEventStore(
-        Dictionary<AggregateId, List<EventPayload>> firstRead,
-        Dictionary<AggregateId, List<EventPayload>> secondRead
+        Dictionary<AggregateId, List<EventPayload>> history
     ) =>
         _eventStoreWithOutbox
-            .SetupSequence(x => x.GetEvents(It.IsAny<List<AggregateId>>()))
-            .ReturnsAsync(firstRead)
-            .ReturnsAsync(secondRead);
+            .Setup(x => x.GetEvents(It.IsAny<List<AggregateId>>()))
+            .ReturnsAsync((List<AggregateId> ids) => ids.ToDictionary(
+                id => id,
+                id => history.GetValueOrDefault(id) ?? new List<EventPayload>()
+            ));
 
     private static EventPayload CreatePayload(
         AggregateId aggregateId,

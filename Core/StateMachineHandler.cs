@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using EventSourcing.Persistence.Interfaces;
 using EventSourcing.Shared.Helpers;
 using EventSourcing.Shared.Models;
@@ -19,52 +20,84 @@ public class StateMachineHandler(
         return await _stateCalculator.Calculate(payloads[aggregateId], [ ]);
     }
 
-    public async Task<StateInfo> ExecuteEvents(EventPayload eventToExecute) =>
-        (await ExecuteEvents([ eventToExecute ]))[eventToExecute.EventExecutionInfo.AggregateId];
+    public async Task<StateInfo> ExecuteEvents(EventPayload eventToExecute)
+    {
+        var executedEvents = await ExecuteEvents([ eventToExecute ]);
+        return executedEvents[eventToExecute.EventExecutionInfo.AggregateId];
+    }
 
-    /// <summary>
-    /// Generates stateInfo by executing conditional event
-    /// Then based on those stataInfo it generates new events by delegate
-    /// Then executes again conditional event + new generated events together.
-    /// </summary>
-    /// <param name="conditionalEvent"></param>
-    /// <param name="conditionalEventsMethod"></param>
-    /// <returns>AggregateId -> StateInfo dictionary of executed conditional event + generated events</returns>
-    public async Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
+    public Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
         EventPayload conditionalEvent,
-        Func<StateInfo, List<EventPayload>> conditionalEventsMethod
+        Func<StateInfo[], List<EventPayload>> conditionalEventsMethod
     )
     {
-        var conditionalEventAggregateId = conditionalEvent.EventExecutionInfo.AggregateId;
-        var existingEvents = await _eventStoreWithOutbox.GetEvents([ conditionalEventAggregateId ]);
+        return ExecuteEvents(new List<EventPayload> { conditionalEvent }, conditionalEventsMethod);
+    }
 
-        var stateInfoDictionary = await ExecuteEventsInternal(existingEvents, [ conditionalEvent ]);
-        var conditionalEventStateInfo = stateInfoDictionary[conditionalEventAggregateId];
+    /// <remarks>
+    /// In the case we ever want to implement a retry - in the case of an exception, reset conditional event orderNumbers
+    /// </remarks>
+    public async Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
+        List<EventPayload> conditionalEvents,
+        params Func<StateInfo[], List<EventPayload>>[] conditionalEventsMethods
+    )
+    {
+        var conditionalEventAggregateIds = conditionalEvents
+            .Select(p => p.EventExecutionInfo.AggregateId)
+            .Distinct();
 
-        var generatedEvents = conditionalEventsMethod(
-            stateInfoDictionary[conditionalEventAggregateId]
+        var existingEvents = await _eventStoreWithOutbox.GetEvents(
+            [ .. conditionalEventAggregateIds ]
         );
 
-        var aggregateIds = generatedEvents
-            .Select(x => x.EventExecutionInfo.AggregateId)
-            .Distinct()
-            .ToList();
+        var newEvents = new List<EventPayload>(conditionalEvents);
 
-        existingEvents = await _eventStoreWithOutbox.GetEvents(aggregateIds);
+        var stateInfoDictionary = new Dictionary<AggregateId, StateInfo>();
+        foreach (var conditionalEventsMethod in conditionalEventsMethods)
+        {
+            stateInfoDictionary = await ExecuteEventsInternal(existingEvents, newEvents);
+            var generatedEvents = conditionalEventsMethod(stateInfoDictionary.Values.ToArray());
+            await SetExistingEventsForNewAggregates(existingEvents, generatedEvents);
 
-        var conditionalAggregateEvents = existingEvents.ContainsKey(conditionalEventAggregateId)
-            ? existingEvents[conditionalEventAggregateId].Append(conditionalEvent).ToList()
-            : [ conditionalEvent ];
-        existingEvents[conditionalEventAggregateId] = conditionalAggregateEvents;
+            newEvents.AddRange(generatedEvents);
+            ResetOrderNumbers(newEvents);
+        }
 
-        StateValidator.ValidateOldEventsContainDuplicateOrderNumbers(conditionalAggregateEvents);
-
-        stateInfoDictionary = await ExecuteEventsInternal(existingEvents, generatedEvents);
-        AddConditionalEventToStateInfo(stateInfoDictionary, conditionalEventStateInfo);
+        stateInfoDictionary = await ExecuteEventsInternal(existingEvents, newEvents);
 
         await _eventStoreWithOutbox.Write(stateInfoDictionary);
 
         return stateInfoDictionary;
+    }
+
+    private void ResetOrderNumbers(List<EventPayload> conditionalEvents)
+    {
+        foreach (var eventPayload in conditionalEvents)
+        {
+            eventPayload.EventExecutionInfo.OrderNumber = EventExecutionInfo.UNSET_ORDER_NUMBER;
+        }
+    }
+
+    private async Task SetExistingEventsForNewAggregates(
+        Dictionary<AggregateId, List<EventPayload>> existingEvents,
+        List<EventPayload> generatedEvents
+    )
+    {
+        var newAggregates = generatedEvents
+            .Select(x => x.EventExecutionInfo.AggregateId)
+            .Except(existingEvents.Keys)
+            .ToList();
+
+        if (!newAggregates.Any())
+            return;
+
+        var newEvents = await _eventStoreWithOutbox.GetEvents(newAggregates);
+
+        foreach (var aggregateId in newAggregates)
+        {
+            if (newEvents.TryGetValue(aggregateId, out var existingEventsForNewAggregate))
+                existingEvents[aggregateId] = existingEventsForNewAggregate;
+        }
     }
 
     public async Task<Dictionary<AggregateId, StateInfo>> ExecuteEvents(
