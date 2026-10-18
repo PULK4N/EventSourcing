@@ -29,7 +29,7 @@ public sealed class StateMachineHandlerTests
                         It.IsAny<AggregateId>()
                     )
             )
-            .ReturnsAsync(
+            .Returns(
                 (string _, AggregateId aggregateId) =>
                     new AccountStateData(aggregateId) { Money = 100 }
             );
@@ -37,10 +37,10 @@ public sealed class StateMachineHandlerTests
         var validatorProvider = new Mock<IEventValidatorProvider>();
         validatorProvider
             .Setup(provider => provider.GetPreEventStateValidators(It.IsAny<EventPayload>()))
-            .ReturnsAsync([ ]);
+            .Returns([ ]);
         validatorProvider
             .Setup(provider => provider.GetPostEventStateValidators(It.IsAny<EventPayload>()))
-            .ReturnsAsync([ ]);
+            .Returns([ ]);
 
         _eventStoreWithOutbox
             .Setup(x => x.Write(It.IsAny<Dictionary<AggregateId, StateInfo>>()))

@@ -19,14 +19,14 @@ public class StateCalculatorUniqueConstraintTests
         var stateDataProvider = new Mock<IStateDataProvider>();
         stateDataProvider
             .Setup(provider => provider.GetStateDataByStateMachine(StateMachineId, It.IsAny<AggregateId>()))
-            .ReturnsAsync((string _, AggregateId aggregateId) => new YamlUserStateData(aggregateId));
+            .Returns((string _, AggregateId aggregateId) => new YamlUserStateData(aggregateId));
         var validatorProvider = new Mock<IEventValidatorProvider>();
         validatorProvider
             .Setup(provider => provider.GetPreEventStateValidators(It.IsAny<EventPayload>()))
-            .ReturnsAsync([ ]);
+            .Returns([ ]);
         validatorProvider
             .Setup(provider => provider.GetPostEventStateValidators(It.IsAny<EventPayload>()))
-            .ReturnsAsync([ ]);
+            .Returns([ ]);
         var definitions = new Mock<IStateMachineDefinitionProvider>();
         definitions
             .Setup(provider => provider.Get(StateMachineId))
@@ -65,7 +65,7 @@ public class StateCalculatorUniqueConstraintTests
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public async Task CreatesConstraintsFromFinalState(
+    public void CreatesConstraintsFromFinalState(
         int existingCount,
         List<YamlUserUpdated> events,
         List<string[]> expectedConstraints
@@ -89,7 +89,7 @@ public class StateCalculatorUniqueConstraintTests
             )
             .ToList();
 
-        var stateInfo = await _stateCalculator.Calculate(
+        var stateInfo = _stateCalculator.Calculate(
             payloads.Take(existingCount).ToList(),
             payloads.Skip(existingCount).ToList()
         );

@@ -24,17 +24,17 @@ public sealed class StateCalculatorTests
                         It.IsAny<AggregateId>()
                     )
             )
-            .ReturnsAsync(
+            .Returns(
                 (string _, AggregateId aggregateId) =>
                     new AccountStateData(aggregateId) { Money = 100 }
             );
         var validatorProvider = new Mock<IEventValidatorProvider>();
         validatorProvider
             .Setup(provider => provider.GetPreEventStateValidators(It.IsAny<EventPayload>()))
-            .ReturnsAsync([ ]);
+            .Returns([ ]);
         validatorProvider
             .Setup(provider => provider.GetPostEventStateValidators(It.IsAny<EventPayload>()))
-            .ReturnsAsync([ ]);
+            .Returns([ ]);
         var stateMachineDefinitionsProvider = new Mock<IStateMachineDefinitionProvider>();
         stateMachineDefinitionsProvider
             .Setup(provider => provider.Get(StateMachineId))
@@ -54,7 +54,7 @@ public sealed class StateCalculatorTests
     }
 
     [Fact]
-    public async Task Calculate_RequiresInitializationEventForNewAggregate()
+    public void Calculate_RequiresInitializationEventForNewAggregate()
     {
         var payload = EventPayload.Create(
             EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
@@ -63,7 +63,7 @@ public sealed class StateCalculatorTests
             new MultiplyMoney { Multiplier = 2 }
         );
 
-        var exception = await Assert.ThrowsAsync<EventValidationException>(
+        var exception = Assert.Throws<EventValidationException>(
             () => _stateCalculator.Calculate([ ], [ payload ])
         );
 
@@ -74,7 +74,7 @@ public sealed class StateCalculatorTests
     }
 
     [Fact]
-    public async Task Calculate_ReturnsCorrectStateInfo()
+    public void Calculate_ReturnsCorrectStateInfo()
     {
         var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         var existingPayload = EventPayload.Create(
@@ -91,7 +91,7 @@ public sealed class StateCalculatorTests
             new TransferMoney { MoneySent = 20 }
         );
 
-        var stateInfo = await _stateCalculator.Calculate([ existingPayload ], [ lastPayload ]);
+        var stateInfo = _stateCalculator.Calculate([ existingPayload ], [ lastPayload ]);
 
         Assert.Equal(2u, stateInfo.CurrentOrderNumber);
         Assert.Equal(lastPayload.EventExecutionInfo.Timestamp, stateInfo.LastUpdateTimestamp);
@@ -103,7 +103,7 @@ public sealed class StateCalculatorTests
     }
 
     [Fact]
-    public async Task Calculate_ThrowsForMixedAggregateIds()
+    public void Calculate_ThrowsForMixedAggregateIds()
     {
         var existingPayload = EventPayload.Create(
             EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
@@ -120,13 +120,13 @@ public sealed class StateCalculatorTests
             new TransferMoney { MoneySent = 20 }
         );
 
-        await Assert.ThrowsAsync<EventValidationException>(
+        Assert.Throws<EventValidationException>(
             () => _stateCalculator.Calculate([ existingPayload ], [ newPayload ])
         );
     }
 
     [Fact]
-    public async Task Calculate_ThrowsForMixedStateMachineIds()
+    public void Calculate_ThrowsForMixedStateMachineIds()
     {
         var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         var existingPayload = EventPayload.Create(
@@ -144,13 +144,13 @@ public sealed class StateCalculatorTests
             new TransferMoney { MoneySent = 20 }
         );
 
-        await Assert.ThrowsAsync<EventValidationException>(
+        Assert.Throws<EventValidationException>(
             () => _stateCalculator.Calculate([ existingPayload ], [ newPayload ])
         );
     }
 
     [Fact]
-    public async Task Calculate_ExecutesExistingEventsByOrderNumber()
+    public void Calculate_ExecutesExistingEventsByOrderNumber()
     {
         var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
         var transferPayload = EventPayload.Create(
@@ -168,7 +168,7 @@ public sealed class StateCalculatorTests
         );
         multiplyPayload.EventExecutionInfo.OrderNumber = 2;
 
-        var stateInfo = await _stateCalculator.Calculate(
+        var stateInfo = _stateCalculator.Calculate(
             [ multiplyPayload, transferPayload ],
             [ ]
         );

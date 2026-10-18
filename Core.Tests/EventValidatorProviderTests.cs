@@ -11,7 +11,7 @@ namespace EventSourcing.Core.Tests;
 public sealed class EventValidatorProviderTests
 {
     [Fact]
-    public async Task GetsPreAndPostEventValidatorsFromStateMachineDefinition()
+    public void GetsPreAndPostEventValidatorsFromStateMachineDefinition()
     {
         var payload = EventPayload.Create(
             EventExecutor.FromDatabaseGuid(Guid.NewGuid()),
@@ -39,8 +39,8 @@ public sealed class EventValidatorProviderTests
             );
         var provider = new EventValidatorProvider(definitions.Object);
 
-        var preEventValidators = await provider.GetPreEventStateValidators(payload);
-        var postEventValidators = await provider.GetPostEventStateValidators(payload);
+        var preEventValidators = provider.GetPreEventStateValidators(payload);
+        var postEventValidators = provider.GetPostEventStateValidators(payload);
 
         var preEventValidator = Assert.IsType<YamlPreEventValidator>(
             Assert.Single(preEventValidators)

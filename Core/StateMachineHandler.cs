@@ -17,7 +17,7 @@ public class StateMachineHandler(
         if (!payloads.ContainsKey(aggregateId) || payloads[aggregateId].Count == 0)
             return null;
 
-        return await _stateCalculator.Calculate(payloads[aggregateId], [ ]);
+        return _stateCalculator.Calculate(payloads[aggregateId], [ ]);
     }
 
     public async Task<StateInfo> ExecuteEvents(EventPayload eventToExecute)
@@ -118,7 +118,7 @@ public class StateMachineHandler(
         return stateInfoDictionary;
     }
 
-    protected async Task<Dictionary<AggregateId, StateInfo>> ExecuteEventsInternal(
+    protected Task<Dictionary<AggregateId, StateInfo>> ExecuteEventsInternal(
         Dictionary<AggregateId, List<EventPayload>> existingEvents,
         List<EventPayload> eventsToExecute
     )
@@ -137,7 +137,7 @@ public class StateMachineHandler(
                 ? existingEvents[aggregateId]
                 : [ ];
 
-            var stateInfo = await _stateCalculator.Calculate(
+            var stateInfo = _stateCalculator.Calculate(
                 previousEvents,
                 eventsToExecuteByAggregate[aggregateId]
             );
@@ -145,7 +145,7 @@ public class StateMachineHandler(
             stateInfoDictionary.Add(aggregateId, stateInfo);
         }
 
-        return stateInfoDictionary;
+        return Task.FromResult(stateInfoDictionary);
     }
 
     private void AddConditionalEventToStateInfo(

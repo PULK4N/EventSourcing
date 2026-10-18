@@ -10,7 +10,7 @@ namespace EventSourcing.Core.Tests;
 public class StateMachineStateDataProviderTests
 {
     [Fact]
-    public async Task CreatesStateDataConfiguredForStateMachine()
+    public void CreatesStateDataConfiguredForStateMachine()
     {
         var definitions = new Mock<IStateMachineDefinitionProvider>();
         definitions
@@ -25,7 +25,7 @@ public class StateMachineStateDataProviderTests
         var provider = new StateMachineStateDataProvider(definitions.Object);
         var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
 
-        var stateData = await provider.GetStateDataByStateMachine(
+        var stateData = provider.GetStateDataByStateMachine(
             "users-state-machine",
             aggregateId
         );

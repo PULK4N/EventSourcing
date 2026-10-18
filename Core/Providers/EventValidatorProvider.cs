@@ -10,24 +10,16 @@ public sealed class EventValidatorProvider(
     IStateMachineDefinitionProvider stateMachineDefinitions
 ) : IEventValidatorProvider
 {
-    public Task<List<IPostEventValidator>> GetPostEventStateValidators(
-        EventPayload payload
-    ) =>
-        Task.FromResult(
-            GetValidators<IPostEventValidator>(
-                payload,
-                eventDefinition => eventDefinition.PostEventValidators
-            )
+    public List<IPostEventValidator> GetPostEventStateValidators(EventPayload payload) =>
+        GetValidators<IPostEventValidator>(
+            payload,
+            eventDefinition => eventDefinition.PostEventValidators
         );
 
-    public Task<List<IPreEventValidator>> GetPreEventStateValidators(
-        EventPayload payload
-    ) =>
-        Task.FromResult(
-            GetValidators<IPreEventValidator>(
-                payload,
-                eventDefinition => eventDefinition.PreEventValidators
-            )
+    public List<IPreEventValidator> GetPreEventStateValidators(EventPayload payload) =>
+        GetValidators<IPreEventValidator>(
+            payload,
+            eventDefinition => eventDefinition.PreEventValidators
         );
 
     private List<TValidator> GetValidators<TValidator>(

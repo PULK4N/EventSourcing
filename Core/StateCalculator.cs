@@ -12,7 +12,7 @@ public class StateCalculator(
     IStateMachineDefinitionProvider _stateMachineDefinitionsProvider
 )
 {
-    public async Task<StateInfo> Calculate(
+    public StateInfo Calculate(
         List<EventPayload> existingPayloads,
         List<EventPayload> newPayloads
     )
@@ -42,7 +42,7 @@ public class StateCalculator(
             firstPayload
         );
 
-        var stateInfo = await GetInitialStateInfo(firstPayload);
+        var stateInfo = GetInitialStateInfo(firstPayload);
 
         _orderNumberHelper.AssignOrderNumbers(existingPayloads, newPayloads);
 
@@ -53,14 +53,12 @@ public class StateCalculator(
 
         foreach (var payload in newPayloads)
         {
-            var prerequisiteValidators = await _validatorProvider.GetPreEventStateValidators(
-                payload
-            );
+            var prerequisiteValidators = _validatorProvider.GetPreEventStateValidators(payload);
             StateValidator.ValidateEvent(stateInfo.StateData, payload, prerequisiteValidators);
 
             Apply(stateInfo, payload);
 
-            var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(
+            var postrequisiteValidators = _validatorProvider.GetPostEventStateValidators(
                 payload
             );
             StateValidator.ValidateEvent(stateInfo.StateData, payload, postrequisiteValidators);
@@ -83,10 +81,10 @@ public class StateCalculator(
             .ToList();
     }
 
-    private async Task<StateInfo> GetInitialStateInfo(EventPayload firstPayload)
+    private StateInfo GetInitialStateInfo(EventPayload firstPayload)
     {
         var stateMachineId = firstPayload.EventExecutionInfo.StateMachineId;
-        var stateData = await _stateDataProvider.GetStateDataByStateMachine(
+        var stateData = _stateDataProvider.GetStateDataByStateMachine(
             stateMachineId,
             firstPayload.EventExecutionInfo.AggregateId
         );

@@ -9,7 +9,7 @@ public sealed class StateMachineStateDataProvider(
     IStateMachineDefinitionProvider stateMachineDefinitions
 ) : IStateDataProvider
 {
-    public Task<object> GetStateDataByStateMachine(string stateMachineId, AggregateId aggregateId)
+    public object GetStateDataByStateMachine(string stateMachineId, AggregateId aggregateId)
     {
         var definition = stateMachineDefinitions.Get(stateMachineId);
         var stateDataType = StateDataTypeContainer.GetStateDataType(definition.StateData);
@@ -18,6 +18,6 @@ public sealed class StateMachineStateDataProvider(
         if (stateData is null)
             throw new StateDataNotRegisteredException(definition.StateData);
 
-        return Task.FromResult(stateData);
+        return stateData;
     }
 }

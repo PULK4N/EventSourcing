@@ -4,6 +4,6 @@ namespace EventSourcing.Core.Interfaces
 {
     public interface IStateDataProvider
     {
-        Task<object> GetStateDataByStateMachine(string stateMachineId, AggregateId aggregateId);
+        object GetStateDataByStateMachine(string stateMachineId, AggregateId aggregateId);
     }
 }
