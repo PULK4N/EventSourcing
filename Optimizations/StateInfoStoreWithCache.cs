@@ -15,9 +15,6 @@ public class StateInfoStoreWithCache(
     private const string CacheKeyPrefix = "stateInfo:";
     private static readonly TimeSpan CacheDuration = TimeSpan.FromDays(1);
 
-    /// <remarks>
-    /// Method assumes aggregateIds are distinct
-    /// </remarks>
     public async Task<Dictionary<AggregateId, StateInfo>> Get(List<AggregateId> aggregateIds)
     {
         var stateInfos = new List<StateInfo>();

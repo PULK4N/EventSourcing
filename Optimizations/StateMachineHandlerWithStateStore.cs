@@ -28,7 +28,7 @@ public class StateMachineHandlerWithStateStore(
     )
     {
         var stateInfos = await base.ExecuteEvents(conditionalEvents, conditionalEventsMethods);
-        await _stateInfoStore.Write([.. stateInfos.Values]);
+        await _stateInfoStore.Write([ .. stateInfos.Values ]);
         return stateInfos;
     }
 }
