@@ -1,3 +1,4 @@
+using EventSourcing.Core;
 using EventSourcing.Persistence;
 using EventSourcing.Persistence.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -16,6 +17,8 @@ public static class InjectionSetup
         service.AddMemoryCache();
         service.TryAddScoped<BaseSqlEventStore>();
         service.AddScoped<IEventStore, EventStoreWithCache>();
+        service.AddScoped<IStateInfoStore, StateInfoStoreWithCache>();
+        service.AddScoped<StateMachineHandler, StateMachineHandlerWithStateStore>();
 
         return service;
     }
