@@ -23,6 +23,7 @@ namespace EventSourcing.Core
             services.AddScoped<ProjectionOutbox>();
             services.RegisterStateDataTypes(applicationAssemblies);
             services.RegisterEventTypes(applicationAssemblies);
+            services.RegisterUniqueConstraintCreators(applicationAssemblies);
             services.RegisterEventValidators(applicationAssemblies);
             services.AddSingleton<
                 IStateMachineDefinitionProvider,
@@ -76,6 +77,27 @@ namespace EventSourcing.Core
             {
                 if (implementation is Type type)
                     EventTypeContainer.AddEventType(type);
+            }
+
+            return services;
+        }
+
+        public static IServiceCollection RegisterUniqueConstraintCreators(
+            this IServiceCollection services,
+            params Assembly[] applicationAssemblies
+        )
+        {
+            var interfaceType = typeof(IUniqueConstraintCreator);
+
+            var allImplementations = applicationAssemblies
+                .SelectMany(assembly => assembly.GetTypes())
+                .Where(type => interfaceType.IsAssignableFrom(type))
+                .Where(type => !type.IsInterface)
+                .Where(type => !type.IsAbstract);
+
+            foreach (var implementation in allImplementations)
+            {
+                UniqueConstraintCreatorContainer.AddUniqueConstraintCreator(implementation);
             }
 
             return services;

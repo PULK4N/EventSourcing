@@ -227,6 +227,9 @@ public sealed class YamlUserStateData(AggregateId aggregateId) : ISharedStateDat
 {
     public AggregateId Id { get; init; } = aggregateId;
     public bool IsDeleted { get; set; }
+    public string? Email { get; set; }
+    public string? Username { get; set; }
+    public string? Name { get; set; }
 }
 
 internal sealed class YamlUserCreated : IEvent
