@@ -1,5 +1,6 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
+using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Models;
 
 namespace EventSourcing.Core;
@@ -16,9 +17,10 @@ public class StateCalculator(
         List<EventPayload> newPayloads
     )
     {
-        var stateMachineId = existingPayloads.Count > 0
-            ? existingPayloads.First().EventExecutionInfo.StateMachineId
-            : newPayloads.First().EventExecutionInfo.StateMachineId;
+        var stateMachineId =
+            existingPayloads.Count > 0
+                ? existingPayloads.First().EventExecutionInfo.StateMachineId
+                : newPayloads.First().EventExecutionInfo.StateMachineId;
 
         var stateMachineDefinition = _stateMachineDefinitionsProvider.Get(stateMachineId);
 
@@ -65,8 +67,20 @@ public class StateCalculator(
         }
 
         stateInfo.LastExecutedPayloads = newPayloads;
+        stateInfo.UniqueConstraints = CreateUniqueConstraints(stateInfo);
 
         return stateInfo;
+    }
+
+    private static List<UniqueConstraint> CreateUniqueConstraints(StateInfo stateInfo)
+    {
+        if (stateInfo.StateData is ISharedStateData { IsDeleted: true })
+            return [ ];
+
+        return UniqueConstraintCreatorContainer
+            .GetUniqueConstraintCreators(stateInfo.StateData.GetType())
+            .SelectMany(creator => creator.Create(stateInfo.StateData))
+            .ToList();
     }
 
     private async Task<StateInfo> GetInitialStateInfo(EventPayload firstPayload)

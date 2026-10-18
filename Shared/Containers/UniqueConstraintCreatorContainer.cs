@@ -19,4 +19,7 @@ public static class UniqueConstraintCreatorContainer
 
         creators.Add(creator);
     }
+
+    public static List<IUniqueConstraintCreator> GetUniqueConstraintCreators(Type stateDataType) =>
+        creatorsByStateData.TryGetValue(stateDataType, out var creators) ? [ .. creators ] : [ ];
 }

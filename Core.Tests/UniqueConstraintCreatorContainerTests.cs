@@ -1,8 +1,6 @@
-using System.Reflection;
 using EventSourcing.Core.Tests.TestModels;
 using EventSourcing.Core.Tests.TestModels.UniqueConstraints;
 using EventSourcing.Shared.Containers;
-using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
 
 namespace EventSourcing.Core.Tests;
@@ -18,7 +16,7 @@ public class UniqueConstraintCreatorContainerTests
     [InlineData(typeof(AccountStateData), new string[0])]
     public void RegistersCreatorsPerStateData(Type stateDataType, string[] expectedNames)
     {
-        var creators = GetRegisteredCreators(stateDataType);
+        var creators = UniqueConstraintCreatorContainer.GetUniqueConstraintCreators(stateDataType);
 
         Assert.Equal(
             expectedNames.Order(),
@@ -33,7 +31,7 @@ public class UniqueConstraintCreatorContainerTests
     public void RegisteredCreatorCreatesConstraintsFromStateData(string? email, int expectedCount)
     {
         var creator = Assert.Single(
-            GetRegisteredCreators(typeof(YamlUserStateData)),
+            UniqueConstraintCreatorContainer.GetUniqueConstraintCreators(typeof(YamlUserStateData)),
             creator => creator is UserEmailConstraintCreator
         );
         var stateData = new YamlUserStateData(AggregateId.FromDatabaseGuid(Guid.NewGuid()))
@@ -52,17 +50,5 @@ public class UniqueConstraintCreatorContainerTests
                 Assert.Equal(new UniqueUserEmailConstraint(stateData, email!).Hash, constraint.Hash);
             }
         );
-    }
-
-    private static List<IUniqueConstraintCreator> GetRegisteredCreators(Type stateDataType)
-    {
-        var field = typeof(UniqueConstraintCreatorContainer).GetField(
-            "creatorsByStateData",
-            BindingFlags.NonPublic | BindingFlags.Static
-        )!;
-        var creatorsByStateData = (Dictionary<Type, List<IUniqueConstraintCreator>>)
-            field.GetValue(null)!;
-
-        return creatorsByStateData.GetValueOrDefault(stateDataType) ?? [ ];
     }
 }
