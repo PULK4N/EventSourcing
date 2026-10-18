@@ -8,7 +8,6 @@ public class StateCalculator(
     OrderNumberHelper _orderNumberHelper,
     IStateDataProvider _stateDataProvider,
     IEventValidatorProvider _validatorProvider,
-    IUniqueEventConstraintProvider _uniqueEventConstraintProvider,
     IStateMachineDefinitionProvider _stateMachineDefinitionsProvider
 )
 {
@@ -57,24 +56,7 @@ public class StateCalculator(
             );
             StateValidator.ValidateEvent(stateInfo.StateData, payload, prerequisiteValidators);
 
-            payload.UniqueEventConstraintsToRemove.Clear();
-            payload
-                .UniqueEventConstraintsToRemove
-                .AddRange(
-                    _uniqueEventConstraintProvider.GetConstraintsToRemove(
-                        stateInfo.StateData,
-                        payload
-                    )
-                );
-
             Apply(stateInfo, payload);
-
-            payload.UniqueEventConstraintsToAdd.Clear();
-            payload
-                .UniqueEventConstraintsToAdd
-                .AddRange(
-                    _uniqueEventConstraintProvider.GetConstraintsToAdd(stateInfo.StateData, payload)
-                );
 
             var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(
                 payload

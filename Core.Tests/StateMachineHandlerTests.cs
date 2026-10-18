@@ -42,23 +42,6 @@ public sealed class StateMachineHandlerTests
             .Setup(provider => provider.GetPostEventStateValidators(It.IsAny<EventPayload>()))
             .ReturnsAsync([ ]);
 
-        var constraintProvider = new Mock<IUniqueEventConstraintProvider>();
-        constraintProvider
-            .Setup(
-                provider =>
-                    provider.GetConstraintsToRemove(
-                        It.IsAny<object>(),
-                        It.IsAny<EventPayload>()
-                    )
-            )
-            .Returns([ ]);
-        constraintProvider
-            .Setup(
-                provider =>
-                    provider.GetConstraintsToAdd(It.IsAny<object>(), It.IsAny<EventPayload>())
-            )
-            .Returns([ ]);
-
         _eventStoreWithOutbox
             .Setup(x => x.Write(It.IsAny<Dictionary<AggregateId, StateInfo>>()))
             .Returns(Task.CompletedTask);
@@ -72,7 +55,6 @@ public sealed class StateMachineHandlerTests
                 new OrderNumberHelper(),
                 stateDataProvider.Object,
                 validatorProvider.Object,
-                constraintProvider.Object,
                 stateMachineDefinitionsProvider.Object
             ),
             _eventStoreWithOutbox.Object
