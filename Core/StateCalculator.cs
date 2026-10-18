@@ -1,5 +1,6 @@
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Providers;
+using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Models;
 
 namespace EventSourcing.Core;
@@ -8,7 +9,6 @@ public class StateCalculator(
     OrderNumberHelper _orderNumberHelper,
     IStateDataProvider _stateDataProvider,
     IEventValidatorProvider _validatorProvider,
-    IUniqueEventConstraintProvider _uniqueEventConstraintProvider,
     IStateMachineDefinitionProvider _stateMachineDefinitionsProvider
 )
 {
@@ -17,9 +17,10 @@ public class StateCalculator(
         List<EventPayload> newPayloads
     )
     {
-        var stateMachineId = existingPayloads.Count > 0
-            ? existingPayloads.First().EventExecutionInfo.StateMachineId
-            : newPayloads.First().EventExecutionInfo.StateMachineId;
+        var stateMachineId =
+            existingPayloads.Count > 0
+                ? existingPayloads.First().EventExecutionInfo.StateMachineId
+                : newPayloads.First().EventExecutionInfo.StateMachineId;
 
         var stateMachineDefinition = _stateMachineDefinitionsProvider.Get(stateMachineId);
 
@@ -57,24 +58,7 @@ public class StateCalculator(
             );
             StateValidator.ValidateEvent(stateInfo.StateData, payload, prerequisiteValidators);
 
-            payload.UniqueEventConstraintsToRemove.Clear();
-            payload
-                .UniqueEventConstraintsToRemove
-                .AddRange(
-                    _uniqueEventConstraintProvider.GetConstraintsToRemove(
-                        stateInfo.StateData,
-                        payload
-                    )
-                );
-
             Apply(stateInfo, payload);
-
-            payload.UniqueEventConstraintsToAdd.Clear();
-            payload
-                .UniqueEventConstraintsToAdd
-                .AddRange(
-                    _uniqueEventConstraintProvider.GetConstraintsToAdd(stateInfo.StateData, payload)
-                );
 
             var postrequisiteValidators = await _validatorProvider.GetPostEventStateValidators(
                 payload
@@ -83,8 +67,20 @@ public class StateCalculator(
         }
 
         stateInfo.LastExecutedPayloads = newPayloads;
+        stateInfo.UniqueConstraints = CreateUniqueConstraints(stateInfo);
 
         return stateInfo;
+    }
+
+    private static List<UniqueConstraint> CreateUniqueConstraints(StateInfo stateInfo)
+    {
+        if (stateInfo.StateData is ISharedStateData { IsDeleted: true })
+            return [ ];
+
+        return UniqueConstraintCreatorContainer
+            .GetUniqueConstraintCreators(stateInfo.StateData.GetType())
+            .SelectMany(creator => creator.Create(stateInfo.StateData))
+            .ToList();
     }
 
     private async Task<StateInfo> GetInitialStateInfo(EventPayload firstPayload)

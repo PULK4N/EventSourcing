@@ -144,7 +144,6 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
 
             eventDefinition.PreEventValidators ??=  [ ];
             eventDefinition.PostEventValidators ??=  [ ];
-            eventDefinition.UniqueConstraints ??=  [ ];
             eventDefinition.Projections ??=  [ ];
             eventDefinition.Hooks ??= new HashSet<string>(StringComparer.Ordinal);
 
@@ -165,11 +164,6 @@ public sealed class YamlStateMachineDefinitionProvider : IStateMachineDefinition
                 eventDefinition.PostEventValidators,
                 eventName
             );
-
-            foreach (var constraintName in eventDefinition.UniqueConstraints)
-            {
-                ConstraintCreatorTypeContainer.GetUniqueEventConstraintCreator(constraintName);
-            }
         }
     }
 

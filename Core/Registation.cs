@@ -23,7 +23,7 @@ namespace EventSourcing.Core
             services.AddScoped<ProjectionOutbox>();
             services.RegisterStateDataTypes(applicationAssemblies);
             services.RegisterEventTypes(applicationAssemblies);
-            services.RegisterUniqueEventConstraintCreators(applicationAssemblies);
+            services.RegisterUniqueConstraintCreators(applicationAssemblies);
             services.RegisterEventValidators(applicationAssemblies);
             services.AddSingleton<
                 IStateMachineDefinitionProvider,
@@ -32,10 +32,6 @@ namespace EventSourcing.Core
             services.AddScoped<IEventValidatorProvider, EventValidatorProvider>();
             services.TryAddScoped<IEventHookProvider, StateMachineEventHookProvider>();
             services.AddScoped<IStateDataProvider, StateMachineStateDataProvider>();
-            services.AddScoped<
-                IUniqueEventConstraintProvider,
-                StateMachineUniqueEventConstraintProvider
-            >();
 
             return services;
         }
@@ -86,24 +82,22 @@ namespace EventSourcing.Core
             return services;
         }
 
-        public static IServiceCollection RegisterUniqueEventConstraintCreators(
+        public static IServiceCollection RegisterUniqueConstraintCreators(
             this IServiceCollection services,
             params Assembly[] applicationAssemblies
         )
         {
             var interfaceType = typeof(IUniqueConstraintCreator);
-            var assemblies = applicationAssemblies;
 
-            var allImplementations = assemblies
-                .SelectMany(a => a.GetTypes())
+            var allImplementations = applicationAssemblies
+                .SelectMany(assembly => assembly.GetTypes())
                 .Where(type => interfaceType.IsAssignableFrom(type))
                 .Where(type => !type.IsInterface)
                 .Where(type => !type.IsAbstract);
 
             foreach (var implementation in allImplementations)
             {
-                if (implementation is Type type)
-                    ConstraintCreatorTypeContainer.AddUniqueEventConstraintCreator(type);
+                UniqueConstraintCreatorContainer.AddUniqueConstraintCreator(implementation);
             }
 
             return services;

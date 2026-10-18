@@ -35,25 +35,6 @@ public sealed class StateCalculatorTests
         validatorProvider
             .Setup(provider => provider.GetPostEventStateValidators(It.IsAny<EventPayload>()))
             .ReturnsAsync([ ]);
-        var constraintProvider = new Mock<IUniqueEventConstraintProvider>();
-        constraintProvider
-            .Setup(
-                provider =>
-                    provider.GetConstraintsToRemove(
-                        It.IsAny<object>(),
-                        It.IsAny<EventPayload>()
-                    )
-            )
-            .Returns([ ]);
-        constraintProvider
-            .Setup(
-                provider =>
-                    provider.GetConstraintsToAdd(
-                        It.IsAny<object>(),
-                        It.IsAny<EventPayload>()
-                    )
-            )
-            .Returns([ ]);
         var stateMachineDefinitionsProvider = new Mock<IStateMachineDefinitionProvider>();
         stateMachineDefinitionsProvider
             .Setup(provider => provider.Get(StateMachineId))
@@ -68,7 +49,6 @@ public sealed class StateCalculatorTests
             new OrderNumberHelper(),
             stateDataProvider.Object,
             validatorProvider.Object,
-            constraintProvider.Object,
             stateMachineDefinitionsProvider.Object
         );
     }

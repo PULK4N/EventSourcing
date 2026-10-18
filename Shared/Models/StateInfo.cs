@@ -12,6 +12,12 @@ namespace EventSourcing.Shared.Models
         public string StateMachineId { get; set; } = string.Empty;
         public List<EventPayload> LastExecutedPayloads { get; set; } = new List<EventPayload>();
 
+        /// <summary>
+        /// Unique values the current state holds, owned by this aggregate. Empty when the
+        /// state is deleted.
+        /// </summary>
+        public List<UniqueConstraint> UniqueConstraints { get; set; } = new List<UniqueConstraint>();
+
         // State might not yet need to be implemented
         public string State { get; set; } = "NULL_STATE";
         public object StateData { get; set; }

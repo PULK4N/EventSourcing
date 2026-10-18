@@ -9,8 +9,8 @@ public class EventStore(BaseSqlEventStore baseSqlEventStore) : IEventStore
         List<AggregateId> aggregateIds
     ) => baseSqlEventStore.GetEvents(aggregateIds);
 
-    public async Task Write(List<EventPayload> payloads)
+    public async Task Write(List<StateInfo> stateInfos)
     {
-        await baseSqlEventStore.Write(payloads);
+        await baseSqlEventStore.Write(stateInfos);
     }
 }

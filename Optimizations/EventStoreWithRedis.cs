@@ -133,7 +133,8 @@ namespace EventSourcing.Optimizations
             }
         }
 
-        public Task Write(List<EventPayload> payloads) => _sqlEventStore.Write(payloads);
+        public Task Write(List<StateInfo> stateInfos) =>
+            _sqlEventStore.Write(stateInfos);
 
         public RedisKey GetRedisKey(AggregateId aggregateId) =>
             new RedisKey("EventPayloadsByAggregateId:" + aggregateId.Value.ToString());

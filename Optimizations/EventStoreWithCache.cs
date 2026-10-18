@@ -74,7 +74,8 @@ public class EventStoreWithCache(BaseSqlEventStore sqlEventStore, IMemoryCache c
         return await sqlEventStore.GetEvents(predicate);
     }
 
-    public async Task Write(List<EventPayload> payloads) => await sqlEventStore.Write(payloads);
+    public async Task Write(List<StateInfo> stateInfos) =>
+        await sqlEventStore.Write(stateInfos);
 
     private static string GetCacheKey(AggregateId aggregateId) => CacheKeyPrefix + aggregateId;
 }

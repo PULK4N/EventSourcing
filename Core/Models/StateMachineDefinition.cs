@@ -14,6 +14,5 @@ public sealed class StateMachineEventDefinition
     public HashSet<string> Hooks { get; set; } = new(StringComparer.Ordinal);
     public List<string> PreEventValidators { get; set; } = [ ];
     public List<string> PostEventValidators { get; set; } = [ ];
-    public List<string> UniqueConstraints { get; set; } = [ ];
     public List<string> Projections { get; set; } = [ ];
 }

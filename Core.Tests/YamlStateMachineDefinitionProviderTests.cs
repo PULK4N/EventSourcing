@@ -1,5 +1,4 @@
 using EventSourcing.Core.Providers;
-using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Exceptions;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
@@ -32,9 +31,6 @@ public class YamlStateMachineDefinitionProviderTests
                       - YamlPreEventValidator
                     postEventValidators:
                       - YamlPostEventValidator
-                    uniqueConstraints:
-                      - UniqueEmailConstraint
-                      - UniqueUsernameConstraint
                     projections:
                       - user-search
                 """
@@ -49,29 +45,12 @@ public class YamlStateMachineDefinitionProviderTests
             var userCreated = definition.Events["YamlUserCreated"];
             Assert.Equal([ "YamlPreEventValidator" ], userCreated.PreEventValidators);
             Assert.Equal([ "YamlPostEventValidator" ], userCreated.PostEventValidators);
-            Assert.Equal(
-                [ "UniqueEmailConstraint", "UniqueUsernameConstraint" ],
-                userCreated.UniqueConstraints
-            );
             Assert.Equal([ "user-search" ], userCreated.Projections);
         }
         finally
         {
             Directory.Delete(directoryPath, recursive: true);
         }
-    }
-
-    [Fact]
-    public void ReusesRegisteredConstraintCreatorInstances()
-    {
-        var first = ConstraintCreatorTypeContainer.GetUniqueEventConstraintCreator(
-            nameof(UniqueEmailConstraint)
-        );
-        var second = ConstraintCreatorTypeContainer.GetUniqueEventConstraintCreator(
-            nameof(UniqueEmailConstraint)
-        );
-
-        Assert.Same(first, second);
     }
 
     [Fact]
@@ -248,6 +227,9 @@ public sealed class YamlUserStateData(AggregateId aggregateId) : ISharedStateDat
 {
     public AggregateId Id { get; init; } = aggregateId;
     public bool IsDeleted { get; set; }
+    public string? Email { get; set; }
+    public string? Username { get; set; }
+    public string? Name { get; set; }
 }
 
 internal sealed class YamlUserCreated : IEvent
@@ -265,30 +247,4 @@ public sealed class YamlPostEventValidator : IPostEventValidator
 {
     public EventValidationResult Validate(object stateData, EventPayload payload) =>
         EventValidationResult.FromPayload(payload, nameof(YamlPostEventValidator), true, null);
-}
-
-public sealed class UniqueEmailConstraint : IUniqueConstraintCreator<YamlUserStateData>
-{
-    public IEnumerable<UniqueEventConstraintData> CreateConstraintsToRemove(
-        YamlUserStateData stateBeforeEvent,
-        EventPayload payload
-    ) => [ new UniqueEventConstraintData("email", "removed-email") ];
-
-    public IEnumerable<UniqueEventConstraintData> CreateConstraintsToAdd(
-        YamlUserStateData stateAfterEvent,
-        EventPayload payload
-    ) => [ new UniqueEventConstraintData("email", "added-email") ];
-}
-
-public sealed class UniqueUsernameConstraint : IUniqueConstraintCreator<YamlUserStateData>
-{
-    public IEnumerable<UniqueEventConstraintData> CreateConstraintsToRemove(
-        YamlUserStateData stateBeforeEvent,
-        EventPayload payload
-    ) => [ new UniqueEventConstraintData("username", "removed-username") ];
-
-    public IEnumerable<UniqueEventConstraintData> CreateConstraintsToAdd(
-        YamlUserStateData stateAfterEvent,
-        EventPayload payload
-    ) => [ new UniqueEventConstraintData("username", "added-username") ];
 }

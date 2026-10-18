@@ -47,118 +47,36 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
         return serializedPayloads.Select(x => x.Deserialize()).ToList();
     }
 
-    public async Task Write(List<EventPayload> payloads)
+    /// <summary>
+    /// Writes the new events and replaces the unique constraints of every written aggregate
+    /// with the ones its final state holds. The delete runs first so that a value can move
+    /// between aggregates in one write; the unique hash index rejects any value already held
+    /// by another aggregate.
+    /// </summary>
+    public async Task Write(List<StateInfo> stateInfos)
     {
-        GetConstraintsAndSerializedPayloads(
-            payloads,
-            out var serializedPayloads,
-            out var constraintsToAdd,
-            out var constraintsToRemove,
-            out var constraintsToTransfer
-        );
+        var serializedPayloads = stateInfos
+            .SelectMany(stateInfo => stateInfo.LastExecutedPayloads)
+            .Select(SerializedEventPayload.FromPayload)
+            .ToList();
+        var uniqueConstraints = stateInfos
+            .SelectMany(stateInfo => stateInfo.UniqueConstraints)
+            .ToList();
+        var aggregateIds = stateInfos.Select(stateInfo => stateInfo.AggregateId.Value).ToList();
 
         await using var transaction = applicationDbContext.Database.CurrentTransaction is null
             ? await applicationDbContext.Database.BeginTransactionAsync()
             : null;
 
-        applicationDbContext.UniqueEventConstraints.RemoveRange(constraintsToRemove);
+        await applicationDbContext
+            .UniqueConstraints
+            .Where(constraint => aggregateIds.Contains(constraint.AggregateId))
+            .ExecuteDeleteAsync();
         await applicationDbContext.SerializedEventPayload.AddRangeAsync(serializedPayloads);
-        await applicationDbContext.UniqueEventConstraints.AddRangeAsync(constraintsToAdd);
-        await UpdateConstraintTransfer(constraintsToTransfer);
+        await applicationDbContext.UniqueConstraints.AddRangeAsync(uniqueConstraints);
         await applicationDbContext.SaveChangesAsync();
 
         if (transaction is not null)
             await transaction.CommitAsync();
-    }
-
-    private static void GetConstraintsAndSerializedPayloads(
-        List<EventPayload> payloads,
-        out List<SerializedEventPayload> serializedPayloads,
-        out List<UniqueEventConstraint> constraintsToAdd,
-        out List<UniqueEventConstraint> constraintsToRemove,
-        out List<ConstraintTransfer> constraintsToTransfer
-    )
-    {
-        UniqueEventConstraintValidator.ValidateConditionIsNotAddedThenRemovedInTheSameWrite(
-            payloads
-        );
-
-        serializedPayloads = payloads.Select(SerializedEventPayload.FromPayload).ToList();
-        var constraintsToAddDict = payloads
-            .SelectMany(
-                payload =>
-                    payload
-                        .UniqueEventConstraintsToAdd
-                        .Select(constraint => new UniqueEventConstraint(payload, constraint))
-            )
-            .ToDictionary(x => Convert.ToHexString(x.ConstraintHash), x => x);
-
-        var constraintsToRemoveDict = payloads
-            .SelectMany(
-                payload =>
-                    payload
-                        .UniqueEventConstraintsToRemove
-                        .Select(constraint => new UniqueEventConstraint(payload, constraint))
-            )
-            .ToDictionary(x => Convert.ToHexString(x.ConstraintHash), x => x);
-
-        constraintsToTransfer = new List<ConstraintTransfer>();
-        foreach (var constraintToAddHash in constraintsToAddDict.Keys.ToList())
-        {
-            if (
-                !constraintsToRemoveDict.TryGetValue(
-                    constraintToAddHash,
-                    out var constraintToRemove
-                )
-            )
-                continue;
-
-            constraintsToTransfer.Add(
-                new ConstraintTransfer(
-                    constraintToRemove,
-                    constraintsToAddDict[constraintToAddHash]
-                )
-            );
-
-            constraintsToAddDict.Remove(constraintToAddHash);
-            constraintsToRemoveDict.Remove(constraintToAddHash);
-        }
-
-        constraintsToAdd = constraintsToAddDict.Values.ToList();
-        constraintsToRemove = constraintsToRemoveDict.Values.ToList();
-    }
-
-    /// <remarks>
-    /// Not optimized, but in general it's extremelly rare scenario.
-    /// </remarks>
-    protected virtual async Task UpdateConstraintTransfer(List<ConstraintTransfer> transfers)
-    {
-        foreach (var transfer in transfers)
-        {
-            var affected = await applicationDbContext
-                .UniqueEventConstraints
-                .Where(
-                    constraint =>
-                        constraint.ConstraintHash == transfer.Previous.ConstraintHash
-                        && constraint.AggregateId == transfer.Previous.AggregateId
-                )
-                .ExecuteUpdateAsync(
-                    setters =>
-                        setters
-                            .SetProperty(
-                                constraint => constraint.AggregateId,
-                                transfer.New.AggregateId
-                            )
-                            .SetProperty(
-                                constraint => constraint.OrderNumber,
-                                transfer.New.OrderNumber
-                            )
-                );
-
-            if (affected != 1)
-                throw new DbUpdateConcurrencyException(
-                    "The constraint is no longer owned by the expected aggregate."
-                );
-        }
     }
 }
