@@ -16,7 +16,16 @@ namespace EventSourcing.Shared.Models
         /// Unique values the current state holds, owned by this aggregate. Empty when the
         /// state is deleted.
         /// </summary>
-        public List<UniqueConstraint> UniqueConstraints { get; set; } = new List<UniqueConstraint>();
+        public List<UniqueConstraint> UniqueConstraints { get; set; } =
+            new List<UniqueConstraint>();
+
+        /// <summary>
+        /// True when <see cref="LastExecutedPayloads"/> left the state with different
+        /// <see cref="UniqueConstraints"/> than it had before them. A new aggregate starts with
+        /// no constraints. Like <see cref="LastExecutedPayloads"/>, it describes the calculation
+        /// that produced this state, not the state itself.
+        /// </summary>
+        public bool UniqueConstraintsChanged { get; set; }
 
         // State might not yet need to be implemented
         public string State { get; set; } = "NULL_STATE";

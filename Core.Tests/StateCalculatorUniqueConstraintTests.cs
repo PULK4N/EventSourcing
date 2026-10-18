@@ -47,20 +47,26 @@ public class StateCalculatorUniqueConstraintTests
     }
 
     // Expected constraints: one value is an email constraint, two values are username + name.
-    public static TheoryData<int, List<YamlUserUpdated>, List<string[]>> Cases =>
+    // Changed compares the final constraints with the ones after the existing events only.
+    public static TheoryData<int, List<YamlUserUpdated>, List<string[]>, bool> Cases =>
         new()
         {
-            { 0, [ new(null) ], [ ] },
-            { 0, [ new("a@x.com") ], [ [ "a@x.com" ] ] },
-            { 0, [ new("a@x.com", "john", "John Smith") ], [ [ "a@x.com" ], [ "john", "John Smith" ] ] },
+            { 0, [ new(null) ], [ ], false },
+            { 0, [ new("a@x.com") ], [ [ "a@x.com" ] ], true },
+            { 0, [ new("a@x.com", "john", "John Smith") ], [ [ "a@x.com" ], [ "john", "John Smith" ] ], true },
             // Only the final state counts, not the values set in between.
-            { 0, [ new("a@x.com"), new("b@x.com") ], [ [ "b@x.com" ] ] },
-            { 0, [ new("a@x.com"), new(null), new("a@x.com") ], [ [ "a@x.com" ] ] },
+            { 0, [ new("a@x.com"), new("b@x.com") ], [ [ "b@x.com" ] ], true },
+            { 0, [ new("a@x.com"), new(null), new("a@x.com") ], [ [ "a@x.com" ] ], true },
             // A deleted state holds no values.
-            { 0, [ new("a@x.com", "john", "John Smith", IsDeleted: true) ], [ ] },
+            { 0, [ new("a@x.com", "john", "John Smith", IsDeleted: true) ], [ ], false },
             // Existing events alone still produce the current constraints.
-            { 1, [ new("a@x.com") ], [ [ "a@x.com" ] ] },
-            { 1, [ new("a@x.com"), new("b@x.com") ], [ [ "b@x.com" ] ] },
+            { 1, [ new("a@x.com") ], [ [ "a@x.com" ] ], false },
+            { 1, [ new("a@x.com"), new("b@x.com") ], [ [ "b@x.com" ] ], true },
+            { 1, [ new("a@x.com"), new("a@x.com") ], [ [ "a@x.com" ] ], false },
+            { 1, [ new("a@x.com"), new("b@x.com"), new("a@x.com") ], [ [ "a@x.com" ] ], false },
+            { 1, [ new("a@x.com"), new(null) ], [ ], true },
+            { 1, [ new("a@x.com", "john", "John Smith"), new("a@x.com", "john", "John Doe") ], [ [ "a@x.com" ], [ "john", "John Doe" ] ], true },
+            { 1, [ new("a@x.com"), new("a@x.com", IsDeleted: true) ], [ ], true },
         };
 
     [Theory]
@@ -68,7 +74,8 @@ public class StateCalculatorUniqueConstraintTests
     public void CreatesConstraintsFromFinalState(
         int existingCount,
         List<YamlUserUpdated> events,
-        List<string[]> expectedConstraints
+        List<string[]> expectedConstraints,
+        bool expectedChanged
     )
     {
         var aggregateId = AggregateId.FromDatabaseGuid(Guid.NewGuid());
@@ -106,6 +113,7 @@ public class StateCalculatorUniqueConstraintTests
             expected.Select(Describe).Order(),
             stateInfo.UniqueConstraints.Select(Describe).Order()
         );
+        Assert.Equal(expectedChanged, stateInfo.UniqueConstraintsChanged);
     }
 
     private static string Describe(UniqueConstraint constraint) =>

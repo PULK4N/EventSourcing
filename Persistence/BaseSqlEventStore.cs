@@ -47,33 +47,41 @@ public class BaseSqlEventStore(EventSourcingDbContext applicationDbContext)
         return serializedPayloads.Select(x => x.Deserialize()).ToList();
     }
 
-    /// <summary>
-    /// Writes the new events and replaces the unique constraints of every written aggregate
-    /// with the ones its final state holds. The delete runs first so that a value can move
-    /// between aggregates in one write; the unique hash index rejects any value already held
-    /// by another aggregate.
-    /// </summary>
     public async Task Write(List<StateInfo> stateInfos)
     {
         var serializedPayloads = stateInfos
             .SelectMany(stateInfo => stateInfo.LastExecutedPayloads)
             .Select(SerializedEventPayload.FromPayload)
             .ToList();
-        var uniqueConstraints = stateInfos
+
+        var stateInfosWithConstraintsChanged = stateInfos
+            .Where(x => x.UniqueConstraintsChanged)
+            .ToList();
+        var uniqueConstraints = stateInfosWithConstraintsChanged
             .SelectMany(stateInfo => stateInfo.UniqueConstraints)
             .ToList();
-        var aggregateIds = stateInfos.Select(stateInfo => stateInfo.AggregateId.Value).ToList();
+        var constraintsChangedAggregates = stateInfosWithConstraintsChanged
+            .Select(x => x.AggregateId.Value)
+            .ToList();
 
-        await using var transaction = applicationDbContext.Database.CurrentTransaction is null
-            ? await applicationDbContext.Database.BeginTransactionAsync()
-            : null;
+        var constraintsWereUpdated = stateInfosWithConstraintsChanged.Any();
 
-        await applicationDbContext
-            .UniqueConstraints
-            .Where(constraint => aggregateIds.Contains(constraint.AggregateId))
-            .ExecuteDeleteAsync();
+        await using var transaction =
+            applicationDbContext.Database.CurrentTransaction is null && constraintsWereUpdated
+                ? await applicationDbContext.Database.BeginTransactionAsync()
+                : null;
+
         await applicationDbContext.SerializedEventPayload.AddRangeAsync(serializedPayloads);
-        await applicationDbContext.UniqueConstraints.AddRangeAsync(uniqueConstraints);
+
+        if (constraintsWereUpdated)
+        {
+            await applicationDbContext
+                .UniqueConstraints
+                .Where(constraint => constraintsChangedAggregates.Contains(constraint.AggregateId))
+                .ExecuteDeleteAsync();
+            await applicationDbContext.UniqueConstraints.AddRangeAsync(uniqueConstraints);
+        }
+
         await applicationDbContext.SaveChangesAsync();
 
         if (transaction is not null)

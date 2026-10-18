@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Data.Common;
 using EventSourcing.Core.Interfaces;
 using EventSourcing.Core.Models;
 using EventSourcing.Core.Providers;
@@ -6,6 +8,7 @@ using EventSourcing.Persistence;
 using EventSourcing.Shared.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Moq;
 
 namespace EventSourcing.Core.Tests;
@@ -22,6 +25,7 @@ public sealed class UniqueConstraintScenarioTests : IDisposable
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private readonly Dictionary<string, AggregateId> _aggregates = new();
     private readonly IStateMachineDefinitionProvider _definitions;
+    private readonly DatabaseCallRecorder _databaseCalls = new();
 
     [Fact]
     public async Task SettingEmailStoresIt()
@@ -166,6 +170,64 @@ public sealed class UniqueConstraintScenarioTests : IDisposable
         await AssertRows(Email("A", "x"));
     }
 
+    [Theory]
+    [InlineData("x", false)]
+    [InlineData("y", true)]
+    public async Task ConstraintRowsAreWrittenOnlyWhenValuesChange(string email, bool valuesChange)
+    {
+        await Write(("A", new("x")));
+        var eventCount = await CountEvents();
+        _databaseCalls.Clear();
+
+        await Write(("A", new(email)));
+
+        Assert.Equal(
+            valuesChange,
+            _databaseCalls.Commands.Any(command => command.Contains("UniqueConstraints"))
+        );
+        Assert.Equal(eventCount + 1, await CountEvents());
+        await AssertRows(Email("A", email));
+    }
+
+    /// <remarks>
+    /// Calls the SQL store directly, because <see cref="EventStoreWithOutbox"/> always opens
+    /// its own transaction around the store and the outbox.
+    /// </remarks>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StoreStartsTransactionOnlyWhenValuesChange(bool valuesChange)
+    {
+        var payload = Payload("A", new("x"));
+        payload.EventExecutionInfo.OrderNumber = 1;
+        var stateInfo = StateInfo.Create(new YamlUserStateData(Id("A")), StateMachineId, Id("A"));
+        stateInfo.LastExecutedPayloads = [ payload ];
+        stateInfo.UniqueConstraints = [ Email("A", "x") ];
+        stateInfo.UniqueConstraintsChanged = valuesChange;
+        _databaseCalls.Clear();
+
+        await using (var dbContext = CreateDbContext())
+            await new BaseSqlEventStore(dbContext).Write([ stateInfo ]);
+
+        Assert.Equal(valuesChange ? 1 : 0, _databaseCalls.TransactionsStarted);
+        Assert.Equal(1, await CountEvents());
+        await AssertRows(valuesChange ? [ Email("A", "x") ] : [ ]);
+    }
+
+    [Fact]
+    public async Task OnlyAggregatesWhoseValuesChangeAreRewritten()
+    {
+        await Write(("A", new("x")), ("B", new("y")));
+        var rowIdsBefore = await RowIdsByAggregate();
+
+        await Write(("A", new("x")), ("B", new("z")));
+
+        var rowIdsAfter = await RowIdsByAggregate();
+        Assert.Equal(rowIdsBefore[Id("A").Value], rowIdsAfter[Id("A").Value]);
+        Assert.NotEqual(rowIdsBefore[Id("B").Value], rowIdsAfter[Id("B").Value]);
+        await AssertRows(Email("A", "x"), Email("B", "z"));
+    }
+
     [Fact]
     public async Task TakingAValueAnotherAggregateHoldsFails()
     {
@@ -277,7 +339,18 @@ public sealed class UniqueConstraintScenarioTests : IDisposable
     }
 
     private EventSourcingDbContext CreateDbContext() =>
-        new(new DbContextOptionsBuilder<EventSourcingDbContext>().UseSqlite(_connection).Options);
+        new(
+            new DbContextOptionsBuilder<EventSourcingDbContext>()
+                .UseSqlite(_connection)
+                .AddInterceptors(_databaseCalls.Commands, _databaseCalls.Transactions)
+                .Options
+        );
+
+    private async Task<Dictionary<Guid, long>> RowIdsByAggregate()
+    {
+        await using var dbContext = CreateDbContext();
+        return await dbContext.UniqueConstraints.ToDictionaryAsync(row => row.AggregateId, row => row.Id);
+    }
 
     private EventPayload Payload(string aggregate, YamlUserUpdated eventData) =>
         EventPayload.Create(
@@ -306,4 +379,61 @@ public sealed class UniqueConstraintScenarioTests : IDisposable
 
     private static string Describe(UniqueConstraint constraint) =>
         $"{constraint.AggregateId}:{constraint.ConstraintName}:{Convert.ToHexString(constraint.Hash)}";
+
+    /// <summary>Records the SQL commands and transactions every created DbContext runs.</summary>
+    private sealed class DatabaseCallRecorder
+    {
+        public CommandRecorder Commands { get; } = new();
+        public TransactionRecorder Transactions { get; } = new();
+        public int TransactionsStarted => Transactions.Started;
+
+        public void Clear()
+        {
+            Commands.Clear();
+            Transactions.Started = 0;
+        }
+    }
+
+    private sealed class CommandRecorder : DbCommandInterceptor, IEnumerable<string>
+    {
+        private readonly List<string> _commandTexts = [ ];
+
+        public void Clear() => _commandTexts.Clear();
+
+        public override DbCommand CommandInitialized(CommandEndEventData eventData, DbCommand result)
+        {
+            _commandTexts.Add(result.CommandText);
+            return result;
+        }
+
+        public IEnumerator<string> GetEnumerator() => _commandTexts.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    private sealed class TransactionRecorder : DbTransactionInterceptor
+    {
+        public int Started { get; set; }
+
+        public override DbTransaction TransactionStarted(
+            DbConnection connection,
+            TransactionEndEventData eventData,
+            DbTransaction result
+        )
+        {
+            Started++;
+            return result;
+        }
+
+        public override ValueTask<DbTransaction> TransactionStartedAsync(
+            DbConnection connection,
+            TransactionEndEventData eventData,
+            DbTransaction result,
+            CancellationToken cancellationToken = default
+        )
+        {
+            Started++;
+            return ValueTask.FromResult(result);
+        }
+    }
 }

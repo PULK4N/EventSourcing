@@ -12,10 +12,7 @@ public class StateCalculator(
     IStateMachineDefinitionProvider _stateMachineDefinitionsProvider
 )
 {
-    public StateInfo Calculate(
-        List<EventPayload> existingPayloads,
-        List<EventPayload> newPayloads
-    )
+    public StateInfo Calculate(List<EventPayload> existingPayloads, List<EventPayload> newPayloads)
     {
         var stateMachineId =
             existingPayloads.Count > 0
@@ -51,6 +48,9 @@ public class StateCalculator(
             Apply(stateInfo, payload);
         }
 
+        List<UniqueConstraint> previousUniqueConstraints =
+            existingPayloads.Count > 0 ? CreateUniqueConstraints(stateInfo) : [ ];
+
         foreach (var payload in newPayloads)
         {
             var prerequisiteValidators = _validatorProvider.GetPreEventStateValidators(payload);
@@ -58,17 +58,33 @@ public class StateCalculator(
 
             Apply(stateInfo, payload);
 
-            var postrequisiteValidators = _validatorProvider.GetPostEventStateValidators(
-                payload
-            );
+            var postrequisiteValidators = _validatorProvider.GetPostEventStateValidators(payload);
             StateValidator.ValidateEvent(stateInfo.StateData, payload, postrequisiteValidators);
         }
 
         stateInfo.LastExecutedPayloads = newPayloads;
         stateInfo.UniqueConstraints = CreateUniqueConstraints(stateInfo);
+        stateInfo.UniqueConstraintsChanged = !HaveSameHashes(
+            previousUniqueConstraints,
+            stateInfo.UniqueConstraints
+        );
 
         return stateInfo;
     }
+
+    /// <remarks>
+    /// The hash already covers the state-data type and constraint name, so equal hashes mean equal constraints.
+    /// </remarks>
+    private static bool HaveSameHashes(
+        List<UniqueConstraint> before,
+        List<UniqueConstraint> after
+    ) =>
+        before
+            .Select(constraint => Convert.ToHexString(constraint.Hash))
+            .Order()
+            .SequenceEqual(
+                after.Select(constraint => Convert.ToHexString(constraint.Hash)).Order()
+            );
 
     private static List<UniqueConstraint> CreateUniqueConstraints(StateInfo stateInfo)
     {
