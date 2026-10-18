@@ -4,6 +4,7 @@ using EventSourcing.Persistence.Models;
 using EventSourcing.Shared.Containers;
 using EventSourcing.Shared.Interfaces;
 using EventSourcing.Shared.Models;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Xunit;
@@ -12,6 +13,7 @@ namespace EventSourcing.Optimizations.Tests;
 
 public class EventStoreWithCacheTests : IDisposable
 {
+    private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private readonly EventSourcingDbContext _dbContext;
     private readonly MemoryCache _cache = new(new MemoryCacheOptions());
     private readonly EventStoreWithCache _eventStore;
@@ -23,11 +25,13 @@ public class EventStoreWithCacheTests : IDisposable
 
     public EventStoreWithCacheTests()
     {
+        _connection.Open();
         var options = new DbContextOptionsBuilder<EventSourcingDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseSqlite(_connection)
             .Options;
 
         _dbContext = new EventSourcingDbContext(options);
+        _dbContext.Database.EnsureCreated();
         _eventStore = new EventStoreWithCache(new BaseSqlEventStore(_dbContext), _cache);
     }
 
@@ -40,14 +44,9 @@ public class EventStoreWithCacheTests : IDisposable
         await Seed(firstEvent, secondEvent);
 
         var events = new List<EventPayload>() { firstEvent, secondEvent };
-        var serializedEvents = JsonSerializer.Serialize(events, new JsonSerializerOptions());
         var result = await _eventStore.GetEvents([ aggregateId ]);
         var resultValues = result.SelectMany(x => x.Value).ToList();
-        var serializedResultValues = JsonSerializer.Serialize(
-            resultValues,
-            new JsonSerializerOptions()
-        );
-        Assert.Equal(serializedEvents, serializedResultValues);
+        Assert.Equal(events.Select(Describe), resultValues.Select(Describe));
 
         Assert.True(
             _cache.TryGetValue<List<EventPayload>>(GetCacheKey(aggregateId), out var cachedEvents)
@@ -108,7 +107,9 @@ public class EventStoreWithCacheTests : IDisposable
         Assert.True(_cache.TryGetValue(GetCacheKey(aggregateId), out _));
 
         var newEvent = CreateEvent(aggregateId, 2);
-        await _eventStore.Write([ newEvent ]);
+        var stateInfo = StateInfo.Create(new object(), "cache-tests", aggregateId);
+        stateInfo.LastExecutedPayloads = [ newEvent ];
+        await _eventStore.Write([ stateInfo ]);
 
         Assert.Equal(2, await _dbContext.SerializedEventPayload.CountAsync());
 
@@ -141,6 +142,7 @@ public class EventStoreWithCacheTests : IDisposable
     public void Dispose()
     {
         _dbContext.Dispose();
+        _connection.Dispose();
         _cache.Dispose();
     }
 
@@ -164,6 +166,23 @@ public class EventStoreWithCacheTests : IDisposable
         payload.EventExecutionInfo.OrderNumber = orderNumber;
         return payload;
     }
+
+    /// <remarks>
+    /// SQLite does not keep <see cref="DateTimeKind"/>, so the timestamp is compared by ticks.
+    /// </remarks>
+    private static string Describe(EventPayload payload) =>
+        JsonSerializer.Serialize(
+            new
+            {
+                payload.EventExecutionInfo.AggregateId,
+                payload.EventExecutionInfo.OrderNumber,
+                payload.EventExecutionInfo.EventName,
+                payload.EventExecutionInfo.StateMachineId,
+                payload.EventExecutionInfo.EventExecutor,
+                Timestamp = payload.EventExecutionInfo.Timestamp.Ticks,
+                EventData = (object)payload.EventData
+            }
+        );
 
     private static string GetCacheKey(AggregateId aggregateId) =>
         "inMemoryEventStore:" + aggregateId;

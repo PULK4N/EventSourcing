@@ -11,9 +11,8 @@ public class EventStoreWithOutbox(
 {
     public async Task Write(Dictionary<AggregateId, StateInfo> stateInfos)
     {
-        var payloads = stateInfos.Values.SelectMany(x => x.LastExecutedPayloads).ToList();
         using var transaction = await applicationDbContext.Database.BeginTransactionAsync();
-        await _eventStore.Write(payloads);
+        await _eventStore.Write(stateInfos.Values.ToList());
         await _outbox.Write(stateInfos);
         await transaction.CommitAsync();
     }
